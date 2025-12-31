@@ -1,0 +1,131 @@
+/* Mobile Touch Fixes */
+* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+}
+
+input,
+select,
+textarea,
+button {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    touch-action: manipulation;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+}
+
+/* Ensure inputs are clickable */
+.form-input,
+.form-select,
+input[type="text"],
+input[type="number"],
+input[type="tel"],
+input[type="date"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 100 !important;
+    min-height: 44px;
+    /* iOS minimum touch target */
+}
+
+/* Ensure buttons are clickable */
+button,
+.btn {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 100 !important;
+    min-height: 44px;
+    touch-action: manipulation;
+}
+
+/* Fix for iOS zoom on focus */
+@media screen and (max-width: 768px) {
+
+    input[type="text"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="date"],
+    input[type="email"],
+    input[type="password"],
+    select,
+    textarea {
+        font-size: 16px !important;
+        /* Prevent iOS zoom */
+    }
+
+    /* Fix select dropdown on mobile */
+    select {
+        -webkit-appearance: menulist !important;
+        -moz-appearance: menulist !important;
+        appearance: menulist !important;
+        background-color: white;
+        cursor: pointer;
+    }
+
+    select:focus {
+        outline: 2px solid var(--color-accent-blue);
+    }
+}
+
+/* Dropdown menu fixes */
+.transaction-item button:hover {
+    background-color: var(--color-bg-hover);
+}
+
+/* Close menu when clicking outside */
+.transaction-item {
+    isolation: isolate;
+}
+
+/* DatePicker calendar popup */
+.datepicker-popper-high-z {
+    z-index: 9999 !important;
+}
+
+.react-datepicker-popper {
+    z-index: 9999 !important;
+}
+
+.react-datepicker {
+    z-index: 9999 !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.react-datepicker__portal {
+    z-index: 9999 !important;
+}
+
+/* CategorySelect dropdown */
+.category-select-dropdown {
+    z-index: 9999 !important;
+}
+/* Edit mode container */
+.transaction-item.compact {
+    isolation: isolate;
+}
+
+/* Ensure edit form is above other inputs */
+.transaction-item.compact > div {
+    position: relative;
+}
+
+/* Edit form inputs should be above regular inputs */
+.transaction-item input,
+.transaction-item select,
+.transaction-item .form-input {
+    position: relative;
+    z-index: 1001 !important;
+}
