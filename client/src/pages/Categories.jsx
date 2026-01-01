@@ -1,17 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 const API_URL = 'http://localhost:3001/api';
 
 const Categories = () => {
     const { user } = useAuth();
+    const { t } = useSettings();
     const [incomeCategories, setIncomeCategories] = useState([]);
     const [expenseCategories, setExpenseCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newIncomeName, setNewIncomeName] = useState('');
     const [newExpenseName, setNewExpenseName] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+
+    // Split status for each section
+    const [status, setStatus] = useState({
+        income: { error: '', success: '' },
+        expense: { error: '', success: '' }
+    });
+
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState('');
     const [searchIncome, setSearchIncome] = useState('');
@@ -21,11 +28,27 @@ const Categories = () => {
         fetchCategories();
     }, []);
 
+    const setStatusMessage = (type, key, message) => {
+        setStatus(prev => ({
+            ...prev,
+            [type]: {
+                ...prev[type],
+                [key]: message
+            }
+        }));
+    };
+
+    const clearStatus = (type) => {
+        setStatus(prev => ({
+            ...prev,
+            [type]: { error: '', success: '' }
+        }));
+    };
+
     const fetchCategories = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            console.log('🔑 Token from localStorage (Categories):', token);
 
             const response = await fetch(`${API_URL}/categories`, {
                 headers: {
@@ -33,30 +56,28 @@ const Categories = () => {
                 }
             });
 
-            console.log('📦 Categories API Response Status:', response.status);
-
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error('❌ Categories API Error:', errorData);
                 throw new Error(errorData.error || 'Failed to load categories');
             }
 
             const data = await response.json();
-            console.log('✅ Categories loaded:', data);
 
             setIncomeCategories(data.filter(cat => cat.type === 'income'));
             setExpenseCategories(data.filter(cat => cat.type === 'expense'));
         } catch (err) {
             console.error('❌ fetchCategories error:', err);
-            setError('Failed to load categories');
         } finally {
             setLoading(false);
         }
     };
 
     const handleAddCategory = async (name, type) => {
+        clearStatus(type);
+
         if (!name.trim()) {
-            setError('Category name is required');
+            setStatusMessage(type, 'error', t('categories.nameRequired'));
+            setTimeout(() => setStatusMessage(type, 'error', ''), 3000);
             return;
         }
 
@@ -76,8 +97,8 @@ const Categories = () => {
                 throw new Error(data.error || 'Failed to add category');
             }
 
-            setSuccess(`Category "${name}" added successfully!`);
-            setTimeout(() => setSuccess(''), 3000);
+            setStatusMessage(type, 'success', t('categories.addedSuccess', { name }));
+            setTimeout(() => setStatusMessage(type, 'success', ''), 3000);
 
             if (type === 'income') {
                 setNewIncomeName('');
@@ -87,12 +108,12 @@ const Categories = () => {
 
             fetchCategories();
         } catch (err) {
-            setError(err.message);
-            setTimeout(() => setError(''), 3000);
+            setStatusMessage(type, 'error', err.message);
+            setTimeout(() => setStatusMessage(type, 'error', ''), 3000);
         }
     };
 
-    const handleToggleActive = async (id, currentStatus) => {
+    const handleToggleActive = async (id, currentStatus, type) => {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`${API_URL}/categories/${id}`, {
@@ -110,15 +131,17 @@ const Categories = () => {
 
             fetchCategories();
         } catch (err) {
-            setError(err.message);
-            setTimeout(() => setError(''), 3000);
+            setStatusMessage(type, 'error', err.message);
+            setTimeout(() => setStatusMessage(type, 'error', ''), 3000);
         }
     };
 
-    const handleDeleteCategory = async (id, name) => {
-        if (!confirm(`Are you sure you want to delete "${name}"?`)) {
+    const handleDeleteCategory = async (id, name, type) => {
+        if (!confirm(t('categories.deleteConfirm', { name }))) {
             return;
         }
+
+        clearStatus(type);
 
         try {
             const token = localStorage.getItem('token');
@@ -134,12 +157,12 @@ const Categories = () => {
                 throw new Error(data.error || 'Failed to delete category');
             }
 
-            setSuccess(`Category "${name}" deleted successfully!`);
-            setTimeout(() => setSuccess(''), 3000);
+            setStatusMessage(type, 'success', t('categories.deletedSuccess', { name }));
+            setTimeout(() => setStatusMessage(type, 'success', ''), 3000);
             fetchCategories();
         } catch (err) {
-            setError(err.message);
-            setTimeout(() => setError(''), 5000); // Longer timeout for detailed messages
+            setStatusMessage(type, 'error', err.message);
+            setTimeout(() => setStatusMessage(type, 'error', ''), 5000);
         }
     };
 
@@ -148,10 +171,12 @@ const Categories = () => {
         setEditingName(currentName);
     };
 
-    const handleSaveEdit = async (id) => {
+    const handleSaveEdit = async (id, type) => {
+        clearStatus(type);
+
         if (!editingName.trim()) {
-            setError('Category name cannot be empty');
-            setTimeout(() => setError(''), 3000);
+            setStatusMessage(type, 'error', t('categories.nameRequired'));
+            setTimeout(() => setStatusMessage(type, 'error', ''), 3000);
             return;
         }
 
@@ -171,14 +196,14 @@ const Categories = () => {
                 throw new Error(data.error || 'Failed to update category');
             }
 
-            setSuccess('Category updated successfully!');
-            setTimeout(() => setSuccess(''), 3000);
+            setStatusMessage(type, 'success', t('categories.updatedSuccess'));
+            setTimeout(() => setStatusMessage(type, 'success', ''), 3000);
             setEditingId(null);
             setEditingName('');
             fetchCategories();
         } catch (err) {
-            setError(err.message);
-            setTimeout(() => setError(''), 3000);
+            setStatusMessage(type, 'error', err.message);
+            setTimeout(() => setStatusMessage(type, 'error', ''), 3000);
         }
     };
 
@@ -208,7 +233,7 @@ const Categories = () => {
                                     onChange={(e) => setEditingName(e.target.value)}
                                     onKeyPress={(e) => {
                                         if (e.key === 'Enter') {
-                                            handleSaveEdit(cat.id);
+                                            handleSaveEdit(cat.id, type);
                                         } else if (e.key === 'Escape') {
                                             handleCancelEdit();
                                         }
@@ -220,8 +245,8 @@ const Categories = () => {
                                 <>
                                     <span className="category-name">{cat.name}</span>
                                     {cat.transactionCount > 0 && (
-                                        <span className="badge badge-info" title="Number of transactions using this category">
-                                            {cat.transactionCount} txn{cat.transactionCount > 1 ? 's' : ''}
+                                        <span className="badge badge-info" title={t('categories.cannotDelete', { count: cat.transactionCount })}>
+                                            {cat.transactionCount} {t('categories.txn')}
                                         </span>
                                     )}
                                 </>
@@ -232,15 +257,15 @@ const Categories = () => {
                                 <>
                                     <button
                                         className="btn btn-success btn-sm"
-                                        onClick={() => handleSaveEdit(cat.id)}
-                                        title="Save"
+                                        onClick={() => handleSaveEdit(cat.id, type)}
+                                        title={t('common.save')}
                                     >
                                         ✓
                                     </button>
                                     <button
                                         className="btn btn-secondary btn-sm"
                                         onClick={handleCancelEdit}
-                                        title="Cancel"
+                                        title={t('common.cancel')}
                                     >
                                         ✕
                                     </button>
@@ -250,7 +275,7 @@ const Categories = () => {
                                     <button
                                         className="btn btn-primary btn-sm"
                                         onClick={() => handleEditCategory(cat.id, cat.name)}
-                                        title="Edit name"
+                                        title={t('common.edit')}
                                     >
                                         ✏️
                                     </button>
@@ -258,7 +283,7 @@ const Categories = () => {
                                         <input
                                             type="checkbox"
                                             checked={cat.isActive === 1}
-                                            onChange={() => handleToggleActive(cat.id, cat.isActive)}
+                                            onChange={() => handleToggleActive(cat.id, cat.isActive, type)}
                                         />
                                         <span className="toggle-slider"></span>
                                     </label>
@@ -266,8 +291,8 @@ const Categories = () => {
                                     {user?.role === 'admin' && cat.transactionCount === 0 && (
                                         <button
                                             className="btn btn-danger btn-sm"
-                                            onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                                            title="Delete category"
+                                            onClick={() => handleDeleteCategory(cat.id, cat.name, type)}
+                                            title={t('common.delete')}
                                         >
                                             🗑️
                                         </button>
@@ -277,7 +302,7 @@ const Categories = () => {
                                         <button
                                             className="btn btn-secondary btn-sm"
                                             disabled
-                                            title={`Cannot delete: ${cat.transactionCount} transaction(s) using this category`}
+                                            title={t('categories.cannotDelete', { count: cat.transactionCount })}
                                             style={{ opacity: 0.5, cursor: 'not-allowed' }}
                                         >
                                             🔒
@@ -293,14 +318,14 @@ const Categories = () => {
     };
 
     if (loading) {
-        return <div className="loading">Loading categories...</div>;
+        return <div className="loading">{t('common.loading')}</div>;
     }
 
     return (
         <div>
             <div className="page-header">
-                <h1 className="page-title">📁 Manage Categories</h1>
-                <p className="page-subtitle">Add, enable, or disable income and expense categories</p>
+                <h1 className="page-title">📁 {t('categories.title')}</h1>
+                <p className="page-subtitle">{t('categories.subtitle')}</p>
             </div>
 
             <div className="categories-grid">
@@ -308,29 +333,29 @@ const Categories = () => {
                 <div className="card">
                     <div className="category-section-header income">
                         <span className="category-icon">📈</span>
-                        <h3>Income Categories</h3>
-                        <span className="category-count">{incomeCategories.length}</span>
+                        <h3>{t('categories.incomeCategories')}</h3>
+                        <span className="category-count">{incomeCategories.length} {t('categories.count')}</span>
                     </div>
 
                     {/* Notifications */}
-                    {error && (
+                    {status.income.error && (
                         <div className="error-message" style={{ margin: '1rem 1rem 0 1rem' }}>
-                            <span>{error}</span>
+                            <span>{status.income.error}</span>
                             <button
                                 className="message-close-btn"
-                                onClick={() => setError('')}
+                                onClick={() => setStatusMessage('income', 'error', '')}
                                 title="Close"
                             >
                                 ×
                             </button>
                         </div>
                     )}
-                    {success && (
+                    {status.income.success && (
                         <div className="success-message" style={{ margin: '1rem 1rem 0 1rem' }}>
-                            <span>{success}</span>
+                            <span>{status.income.success}</span>
                             <button
                                 className="message-close-btn"
-                                onClick={() => setSuccess('')}
+                                onClick={() => setStatusMessage('income', 'success', '')}
                                 title="Close"
                             >
                                 ×
@@ -343,7 +368,7 @@ const Categories = () => {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="🔍 ค้นหา income category..."
+                            placeholder={t('categories.searchIncome')}
                             value={searchIncome}
                             onChange={(e) => setSearchIncome(e.target.value)}
                             style={{ marginBottom: 0 }}
@@ -355,7 +380,7 @@ const Categories = () => {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="New income category..."
+                            placeholder={t('categories.newIncomePlaceholder')}
                             value={newIncomeName}
                             onChange={(e) => setNewIncomeName(e.target.value)}
                             onKeyPress={(e) => {
@@ -369,7 +394,7 @@ const Categories = () => {
                             onClick={() => handleAddCategory(newIncomeName, 'income')}
                             style={{ marginTop: '0.5rem' }}
                         >
-                            + Add Income Category
+                            {t('categories.addIncomeCategory')}
                         </button>
                     </div>
 
@@ -380,29 +405,29 @@ const Categories = () => {
                 <div className="card">
                     <div className="category-section-header expense">
                         <span className="category-icon">📉</span>
-                        <h3>Expense Categories</h3>
-                        <span className="category-count">{expenseCategories.length}</span>
+                        <h3>{t('categories.expenseCategories')}</h3>
+                        <span className="category-count">{expenseCategories.length} {t('categories.count')}</span>
                     </div>
 
                     {/* Notifications */}
-                    {error && (
+                    {status.expense.error && (
                         <div className="error-message" style={{ margin: '1rem 1rem 0 1rem' }}>
-                            <span>{error}</span>
+                            <span>{status.expense.error}</span>
                             <button
                                 className="message-close-btn"
-                                onClick={() => setError('')}
+                                onClick={() => setStatusMessage('expense', 'error', '')}
                                 title="Close"
                             >
                                 ×
                             </button>
                         </div>
                     )}
-                    {success && (
+                    {status.expense.success && (
                         <div className="success-message" style={{ margin: '1rem 1rem 0 1rem' }}>
-                            <span>{success}</span>
+                            <span>{status.expense.success}</span>
                             <button
                                 className="message-close-btn"
-                                onClick={() => setSuccess('')}
+                                onClick={() => setStatusMessage('expense', 'success', '')}
                                 title="Close"
                             >
                                 ×
@@ -415,7 +440,7 @@ const Categories = () => {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="🔍 ค้นหา expense category..."
+                            placeholder={t('categories.searchExpense')}
                             value={searchExpense}
                             onChange={(e) => setSearchExpense(e.target.value)}
                             style={{ marginBottom: 0 }}
@@ -427,7 +452,7 @@ const Categories = () => {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="New expense category..."
+                            placeholder={t('categories.newExpensePlaceholder')}
                             value={newExpenseName}
                             onChange={(e) => setNewExpenseName(e.target.value)}
                             onKeyPress={(e) => {
@@ -441,7 +466,7 @@ const Categories = () => {
                             onClick={() => handleAddCategory(newExpenseName, 'expense')}
                             style={{ marginTop: '0.5rem' }}
                         >
-                            + Add Expense Category
+                            {t('categories.addExpenseCategory')}
                         </button>
                     </div>
 

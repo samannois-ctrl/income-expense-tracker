@@ -74,3 +74,5 @@
 2025-12-30 07:24:10 +07:00: ⏸️  Scheduled backup is disabled
 2025-12-30 10:13:55 +07:00: [dotenv@17.2.3] injecting env (8) from .env -- tip: ⚙️  enable debug logging with { debug: true }
 2025-12-30 10:41:06 +07:00: [dotenv@17.2.3] injecting env (8) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+2025-12-31 21:16:22 +07:00: [dotenv@17.2.3] injecting env (8) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+2026-01-01 12:02:24 +07:00: [dotenv@17.2.3] injecting env (8) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops

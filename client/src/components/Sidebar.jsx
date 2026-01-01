@@ -35,9 +35,14 @@ const Sidebar = ({ onLinkClick }) => {
             <nav className="sidebar-nav">
                 <div className="sidebar-section">
                     <div className="sidebar-section-title">{t('sidebar.menu')}</div>
+
                     <NavLink to="/" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">📊</span>
                         <span>{t('sidebar.dashboard')}</span>
+                    </NavLink>
+                    <NavLink to="/categories" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
+                        <span className="sidebar-link-icon">🏷️</span>
+                        <span>หมวดรายรับ/รายจ่าย</span>
                     </NavLink>
                     <NavLink to="/entry" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">➕</span>
@@ -51,10 +56,11 @@ const Sidebar = ({ onLinkClick }) => {
                         <span className="sidebar-link-icon">🧾</span>
                         <span>บันทึกการขาย</span>
                     </NavLink>
-                    <NavLink to="/categories" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
-                        <span className="sidebar-link-icon">🏷️</span>
-                        <span>Categories</span>
+                    <NavLink to="/pos/history" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
+                        <span className="sidebar-link-icon">🕒</span>
+                        <span>ประวัติการขาย</span>
                     </NavLink>
+
                 </div>
 
                 <div className="sidebar-section">

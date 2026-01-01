@@ -241,11 +241,11 @@ const Entry = () => {
     // Calculate totals for the selected date
     const totalIncome = filteredTransactions
         .filter(tx => tx.type === 'income')
-        .reduce((sum, tx) => sum + tx.amount, 0);
+        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
     const totalExpense = filteredTransactions
         .filter(tx => tx.type === 'expense')
-        .reduce((sum, tx) => sum + tx.amount, 0);
+        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
     const balance = totalIncome - totalExpense;
 

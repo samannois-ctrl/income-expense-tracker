@@ -22,7 +22,8 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  dateStrings: true
+  dateStrings: true,
+  decimalNumbers: true
 });
 
 // Initialize database tables
@@ -103,7 +104,9 @@ async function initDatabase() {
     `);
     console.log('✅ Backup settings table ready');
 
-    // Create menu categories table (for POS)
+    // --- NEW ADVANCED POS TABLES (5-Table System) ---
+
+    // 1. Categories (e.g. Noodles, Appetizers, Drinks)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS menu_categories (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -111,45 +114,89 @@ async function initDatabase() {
         display_order INT DEFAULT 0,
         is_active TINYINT(1) DEFAULT 1,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_name (name),
         INDEX idx_display_order (display_order)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    console.log('✅ Menu categories table ready');
+    console.log('✅ Menu Categories table ready');
 
-    // Create menu options table (for POS)
+    // 2. Menus (e.g. Tom Yum, Clear Soup, Coke)
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS menu_options (
+      CREATE TABLE IF NOT EXISTS menus (
         id INT AUTO_INCREMENT PRIMARY KEY,
         category_id INT NOT NULL,
         name VARCHAR(255) NOT NULL,
-        price DECIMAL(10, 2) NOT NULL,
+        description TEXT,
+        base_price DECIMAL(10, 2) DEFAULT 0.00,
+        image_url TEXT,
         display_order INT DEFAULT 0,
         is_active TINYINT(1) DEFAULT 1,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (category_id) REFERENCES menu_categories(id) ON DELETE CASCADE,
-        INDEX idx_category (category_id),
-        INDEX idx_name (name),
+        INDEX idx_category_id (category_id),
         INDEX idx_display_order (display_order)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    console.log('✅ Menu options table ready');
+    console.log('✅ Menus table ready');
 
-    // Create noodles table (for POS) - renamed from noodle_types for consistency
+    // 3. Option Groups (e.g. Noodle Types, Toppings, Spiciness)
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS noodles (
+      CREATE TABLE IF NOT EXISTS option_groups (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
+        selection_type ENUM('single', 'multiple') DEFAULT 'single',
+        is_required TINYINT(1) DEFAULT 0,
         display_order INT DEFAULT 0,
         is_active TINYINT(1) DEFAULT 1,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_name (name),
         INDEX idx_display_order (display_order)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    console.log('✅ Noodles table ready');
+    console.log('✅ Option Groups table ready');
 
-    // Create sales table (for POS)
+    // 4. Options (e.g. Thin Noodle, Pork +60, Extra Spicy)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS options (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        group_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        price_adjustment DECIMAL(10, 2) DEFAULT 0.00,
+        is_default TINYINT(1) DEFAULT 0,
+        display_order INT DEFAULT 0,
+        is_available TINYINT(1) DEFAULT 1,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (group_id) REFERENCES option_groups(id) ON DELETE CASCADE,
+        INDEX idx_group_id (group_id),
+        INDEX idx_display_order (display_order)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Options table ready');
+
+    // 5. Menu Option Config (The Mapper)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS menu_option_config (
+        menu_id INT NOT NULL,
+        option_group_id INT NOT NULL,
+        display_order INT DEFAULT 0,
+        is_required TINYINT(1) DEFAULT 1,
+        PRIMARY KEY (menu_id, option_group_id),
+        FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE,
+        FOREIGN KEY (option_group_id) REFERENCES option_groups(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Menu Option Config table ready');
+
+    // 6. Tables (Customer Tables)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS tables (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50) NOT NULL,
+        is_active TINYINT(1) DEFAULT 1,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Tables table ready');
+
+    // Sales Tables
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sales (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -157,6 +204,9 @@ async function initDatabase() {
         totalAmount DECIMAL(10, 2) NOT NULL,
         paymentMethod VARCHAR(50) DEFAULT 'cash',
         customerName VARCHAR(255),
+        paper_order_ref VARCHAR(50),
+        table_id INT,
+        order_type VARCHAR(20) DEFAULT 'dine_in',
         notes TEXT,
         saleDate DATETIME DEFAULT CURRENT_TIMESTAMP,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -167,23 +217,20 @@ async function initDatabase() {
     `);
     console.log('✅ Sales table ready');
 
-    // Create sale_items table (for POS)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sale_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
         saleId INT NOT NULL,
+        menu_id INT,
         itemName VARCHAR(255) NOT NULL,
         quantity INT NOT NULL,
-        price DECIMAL(10, 2) NOT NULL,
-        category_id INT,
-        option_id INT,
-        noodle_id INT,
-        is_custom TINYINT(1) DEFAULT 0,
+        base_price DECIMAL(10, 2) NOT NULL,
+        total_price DECIMAL(10, 2) NOT NULL,
+        options_json TEXT, 
+        notes TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (saleId) REFERENCES sales(id) ON DELETE CASCADE,
-        FOREIGN KEY (category_id) REFERENCES menu_categories(id) ON DELETE SET NULL,
-        FOREIGN KEY (option_id) REFERENCES menu_options(id) ON DELETE SET NULL,
-        FOREIGN KEY (noodle_id) REFERENCES noodles(id) ON DELETE SET NULL,
+        FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE SET NULL,
         INDEX idx_saleId (saleId)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
@@ -194,8 +241,23 @@ async function initDatabase() {
     // Create default admin if not exists
     await seedDefaultAdmin(connection);
 
-    // Seed default categories
-    await seedDefaultCategories(connection);
+    // Note: We are NOT seeding default income/expense categories here to avoid conflict, 
+    // or we can keep the separate 'categories' table for transactions if needed.
+    // Wait, the user has 'categories' for income/expense AND for menu.
+    // The previous implementation had 'categories' table for transactions.
+    // We must ensure we don't assume table name conflict.
+    // My previous code kept 'categories' for the transaction logic.
+    // BUT now I'm creating 'categories' again?
+    // CHECK: The schema above creates 'categories'. Does it conflict with the income/expense one?
+    // The previous file had 'categories' table for transactions.
+    // I should probably rename the menu categories table to 'menu_categories' to be safe,
+    // OR realize that the user asked for "Categories" specifically for menu.
+    // Let's look at the file content again to be sure about the transaction categories table name.
+    // In the previous step I viewed the file, it had:
+    // CREATE TABLE IF NOT EXISTS categories ( ... type VARCHAR(50) ... )
+    // This is for Income/Expense.
+    // So I MUST rename the new menu categories table to 'menu_categories' to avoid conflict.
+    // I will rename it 'menu_categories' in the SQL but expose it as 'Categories' in the UI.
 
   } catch (error) {
     console.error('❌ Error initializing database:', error);

@@ -4,7 +4,6 @@ import { authenticateToken as auth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Helper function to generate unique sale number
 const generateSaleNumber = () => {
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
@@ -12,139 +11,243 @@ const generateSaleNumber = () => {
     return `SALE-${dateStr}-${timeStr}`;
 };
 
-// Create new sale and auto-create income transaction
+// Create Sale
+// Create or Append Order (Session Management)
 router.post('/sales', auth, async (req, res) => {
-    const { customerName, paymentMethod, notes, items } = req.body;
+    const { customerName, paymentMethod, notes, items, tableId, orderType } = req.body;
     const userId = req.user.id;
 
-    // Validate input
     if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'Items are required' });
     }
 
-    // Calculate total amount from items
-    const totalAmount = items.reduce((sum, item) => {
-        return sum + (item.quantity * item.price);
-    }, 0);
-
-    // Get connection for transaction
     const connection = await db.getConnection();
 
     try {
-        // Start transaction
         await connection.beginTransaction();
 
-        // 1. Create income transaction first
-        const [txResult] = await connection.query(
-            `INSERT INTO transactions (userId, type, amount, quantity, category, description, date) 
-             VALUES (?, ?, ?, ?, ?, ?, CURDATE())`,
-            [
-                userId,
-                'income',
-                totalAmount,
-                items.length,
-                'POS Sales',
-                `POS Sale: ${items.length} item(s)${customerName ? ' - ' + customerName : ''}`,
-            ]
-        );
+        let saleId;
+        let saleResult;
 
-        const transactionId = txResult.insertId;
+        // 1. Check for existing active session for this table
+        if (tableId) {
+            const [table] = await connection.query('SELECT current_sale_id, status FROM tables WHERE id = ?', [tableId]);
+            if (table && table[0] && table[0].current_sale_id) {
+                // Existing Session: Append to it
+                saleId = table[0].current_sale_id;
 
-        // 2. Create POS sale
-        // 2. Create POS sale
-        const saleNumber = generateSaleNumber();
-        const [saleResult] = await connection.query(
-            `INSERT INTO pos_sales (sale_number, total_amount, payment_method, notes, transaction_id, created_by, sale_date) 
-             VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-            [
-                saleNumber,
-                totalAmount,
-                paymentMethod || 'cash',
-                notes || (customerName ? `Customer: ${customerName}` : null),
-                transactionId,
-                userId
-            ]
-        );
+                // Fetch current total to update it
+                const [currentSale] = await connection.query('SELECT totalAmount FROM sales WHERE id = ?', [saleId]);
+                let newTotal = Number(currentSale[0].totalAmount);
+                const addedTotal = items.reduce((sum, item) => sum + (item.total_price * item.quantity), 0);
+                newTotal += addedTotal;
 
-        const saleId = saleResult.insertId;
+                // Update Sale Total
+                await connection.query('UPDATE sales SET totalAmount = ? WHERE id = ?', [newTotal, saleId]);
 
-        // 3. Create sale items
+            } else {
+                // No Active Session: Create New
+                const saleNumber = generateSaleNumber();
+                // FIX: item.total_price is already (unit * qty) from frontend
+                const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
+
+                const [res] = await connection.query(
+                    `INSERT INTO sales (userId, totalAmount, paymentMethod, customerName, paper_order_ref, notes, table_id, order_type, saleDate, status) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'open')`,
+                    [userId, totalAmount, null, customerName || null, saleNumber, notes || null, tableId, orderType || 'dine_in']
+                );
+                saleId = res.insertId;
+
+                // Link to Table and Set Occupied
+                await connection.query('UPDATE tables SET current_sale_id = ?, status = "occupied" WHERE id = ?', [saleId, tableId]);
+            }
+        } else {
+            // No Table (Take Away / Direct)
+            const saleNumber = generateSaleNumber();
+            // FIX: item.total_price is already (unit * qty) from frontend
+            const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
+
+            const [res] = await connection.query(
+                `INSERT INTO sales (userId, totalAmount, paymentMethod, customerName, paper_order_ref, notes, table_id, order_type, saleDate, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'open')`,
+                [userId, totalAmount, paymentMethod || 'cash', customerName || null, saleNumber, notes || null, null, orderType || 'take_away']
+            );
+            saleId = res.insertId;
+        }
+
+        // 2. Insert Items (Append)
         for (const item of items) {
             await connection.query(
-                `INSERT INTO pos_sale_items (sale_id, category_id, option_id, noodle_id, item_name, quantity, unit_price, total_price, notes, is_custom) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO sale_items (saleId, menu_id, itemName, quantity, base_price, total_price, options_json, notes) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     saleId,
-                    item.category_id || null,
-                    item.option_id || null,
-                    item.noodle_id || null,
+                    item.menu_id,
                     item.itemName,
                     item.quantity,
-                    item.price,
-                    (item.price * item.quantity),
-                    item.notes || null,
-                    item.is_custom || 0
+                    item.base_price, // Stores original base (without options)
+                    item.total_price, // FIX: Use pre-calculated line total (unit * qty)
+                    JSON.stringify(item.selectedOptions || []),
+                    item.notes || null
                 ]
             );
         }
 
-        // Commit transaction
         await connection.commit();
-
-        res.json({
-            success: true,
-            sale: {
-                id: saleId,
-                totalAmount,
-                transactionId
-            }
-        });
+        res.json({ success: true, saleId });
 
     } catch (error) {
-        // Rollback on error
         await connection.rollback();
-        console.error('Error creating sale:', error);
+        console.error('Error processing order:', error);
         res.status(500).json({ error: error.message });
     } finally {
         connection.release();
     }
 });
 
-// Get all sales with optional filters
+// Pay / Checkout
+router.post('/sales/:id/pay', auth, async (req, res) => {
+    const saleId = req.params.id;
+    const { paymentMethod, cashReceived } = req.body;
+    const userId = req.user.id;
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Get Sale Details
+        const [sale] = await connection.query('SELECT * FROM sales WHERE id = ?', [saleId]);
+        if (!sale || !sale[0]) throw new Error('Sale not found');
+        const saleData = sale[0];
+
+        if (saleData.status === 'completed') {
+            await connection.rollback();
+            return res.json({ success: true, message: 'Already paid' }); // Idempotency
+        }
+
+        // 2. Update Sale Status
+        await connection.query(
+            'UPDATE sales SET status = "completed", paymentMethod = ? WHERE id = ?',
+            [paymentMethod || 'cash', saleId]
+        );
+
+        // 3. Create Income Transaction
+        const [items] = await connection.query('SELECT COUNT(*) as count FROM sale_items WHERE saleId = ?', [saleId]);
+        const itemsCount = items[0].count;
+
+        await connection.query(
+            `INSERT INTO transactions (userId, type, amount, quantity, category, description, date) 
+             VALUES (?, ?, ?, ?, ?, ?, CURDATE())`,
+            [
+                userId,
+                'income',
+                saleData.totalAmount, // Use final total
+                itemsCount,
+                'POS Sales', // Category
+                `POS Sale #${saleData.paper_order_ref} ${saleData.table_id ? '(Table ' + saleData.table_id + ')' : ''}`,
+            ]
+        );
+
+        // 4. Update Table Status (if applicable)
+        if (saleData.table_id) {
+            await connection.query('UPDATE tables SET status = "paid" WHERE id = ?', [saleData.table_id]);
+        }
+
+        await connection.commit();
+        res.json({ success: true });
+
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// Move Table
+router.post('/tables/:id/move', auth, async (req, res) => {
+    const sourceTableId = req.params.id;
+    const { targetTableId } = req.body;
+
+    if (!targetTableId) return res.status(400).json({ error: 'Target table ID is required' });
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Validate Source Table (Must have active sale)
+        const [sourceTable] = await connection.query('SELECT current_sale_id FROM tables WHERE id = ?', [sourceTableId]);
+        if (!sourceTable || !sourceTable[0] || !sourceTable[0].current_sale_id) {
+            throw new Error('Source table has no active order');
+        }
+        const saleId = sourceTable[0].current_sale_id;
+
+        // 2. Validate Target Table (Must be available)
+        const [targetTable] = await connection.query('SELECT status, current_sale_id FROM tables WHERE id = ?', [targetTableId]);
+        if (!targetTable || !targetTable[0]) {
+            throw new Error('Target table not found');
+        }
+
+        // Strict check: Target must be empty (no active sale)
+        if (targetTable[0].current_sale_id) {
+            throw new Error('Target table is already occupied');
+        }
+
+        // 3. Move Sale
+        // Update Target Table
+        await connection.query('UPDATE tables SET current_sale_id = ?, status = "occupied" WHERE id = ?', [saleId, targetTableId]);
+
+        // Update Sale Record
+        await connection.query('UPDATE sales SET table_id = ? WHERE id = ?', [targetTableId, saleId]);
+
+        // Clear Source Table
+        await connection.query('UPDATE tables SET current_sale_id = NULL, status = "available" WHERE id = ?', [sourceTableId]);
+
+        await connection.commit();
+        res.json({ success: true });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error moving table:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// Clear Table
+router.post('/tables/:id/clear', auth, async (req, res) => {
+    const tableId = req.params.id;
+    try {
+        // Use db.prepare().run() for simple updates via Wrapper
+        await db.prepare('UPDATE tables SET current_sale_id = NULL, status = "available" WHERE id = ?').run(tableId);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+// Get Sales
 router.get('/sales', auth, async (req, res) => {
     try {
-        const { start_date, end_date, user_id } = req.query;
-
+        const { start_date, end_date } = req.query;
         let query = `
-            SELECT 
-                s.*,
-                u.fullName as userName,
-                COUNT(si.id) as itemsCount
-            FROM pos_sales s
-            LEFT JOIN users u ON s.created_by = u.id
-            LEFT JOIN pos_sale_items si ON s.id = si.sale_id
+            SELECT s.*, u.fullName as userName, t.name as tableName, COUNT(si.id) as itemsCount
+            FROM sales s
+            LEFT JOIN users u ON s.userId = u.id
+            LEFT JOIN sale_items si ON s.id = si.saleId
+            LEFT JOIN tables t ON s.table_id = t.id
             WHERE 1=1
         `;
-
         const params = [];
 
-        if (start_date) {
-            query += ' AND DATE(s.sale_date) >= ?';
-            params.push(start_date);
-        }
+        if (start_date) { query += ' AND DATE(s.saleDate) >= ?'; params.push(start_date); }
+        if (end_date) { query += ' AND DATE(s.saleDate) <= ?'; params.push(end_date); }
 
-        if (end_date) {
-            query += ' AND DATE(s.sale_date) <= ?';
-            params.push(end_date);
-        }
+        query += ' GROUP BY s.id ORDER BY s.saleDate DESC';
 
-        if (user_id) {
-            query += ' AND s.created_by = ?';
-            params.push(user_id);
-        }
-
-        query += ' GROUP BY s.id ORDER BY s.sale_date DESC, s.created_at DESC';
-
+        // Use db.prepare().all() for SELECT via Wrapper
         const sales = await db.prepare(query).all(...params);
         res.json({ data: sales });
     } catch (error) {
@@ -152,69 +255,53 @@ router.get('/sales', auth, async (req, res) => {
     }
 });
 
-// Get sale detail with items
+// Get Sale Detail
 router.get('/sales/:id', auth, async (req, res) => {
     try {
-        const { id } = req.params;
-
-        // Get sale info
+        // Use db.prepare().get() for Single Row via Wrapper
         const sale = await db.prepare(`
-            SELECT s.*, u.fullName as userName
-            FROM pos_sales s
-            LEFT JOIN users u ON s.created_by = u.id
+            SELECT s.*, t.name as tableName 
+            FROM sales s 
+            LEFT JOIN tables t ON s.table_id = t.id 
             WHERE s.id = ?
-        `).get(id);
+        `).get(req.params.id);
 
-        if (!sale) {
-            return res.status(404).json({ error: 'Sale not found' });
-        }
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
 
-        // Get sale items
-        const items = await db.prepare(`
-            SELECT si.*, 
-                   mc.name as categoryName,
-                   mo.name as optionName,
-                   n.name as noodleName
-            FROM pos_sale_items si
-            LEFT JOIN menu_categories mc ON si.category_id = mc.id
-            LEFT JOIN menu_options mo ON si.option_id = mo.id
-            LEFT JOIN noodles n ON si.noodle_id = n.id
-            WHERE si.sale_id = ?
-        `).all(id);
+        const items = await db.prepare('SELECT * FROM sale_items WHERE saleId = ?').all(req.params.id);
 
-        res.json({
-            sale,
-            items
-        });
+        res.json({ sale, items });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Delete sale
-router.delete('/sales/:id', auth, async (req, res) => {
-    const { id } = req.params;
-    const connection = await db.getConnection();
+// --- Table Management ---
 
+// Get Tables
+router.get('/tables', auth, async (req, res) => {
     try {
-        await connection.beginTransaction();
-
-        // Delete sale (items will be deleted by CASCADE)
-        const [result] = await connection.query('DELETE FROM pos_sales WHERE id = ?', [id]);
-
-        if (result.affectedRows === 0) {
-            await connection.rollback();
-            return res.status(404).json({ error: 'Sale not found' });
-        }
-
-        await connection.commit();
-        res.json({ success: true, message: 'Sale deleted successfully' });
-
+        // Use db.prepare().all() via Wrapper
+        const tables = await db.prepare('SELECT * FROM tables WHERE is_active=1 ORDER BY id ASC').all();
+        res.json({ data: tables });
     } catch (error) {
-        await connection.rollback();
         res.status(500).json({ error: error.message });
-    } finally {
-        connection.release();
+    }
+});
+
+// Create Table
+router.post('/tables', auth, async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) return res.status(400).json({ error: 'Table name is required' });
+
+        // Use db.prepare().run() for Insert via Wrapper
+        const result = await db.prepare('INSERT INTO tables (name, is_active, status) VALUES (?, 1, "available")').run(name);
+
+        // Note: db.prepare().run() returns { lastInsertRowid, changes }
+        res.json({ success: true, id: result.lastInsertRowid });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
