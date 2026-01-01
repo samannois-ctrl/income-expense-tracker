@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
+import './POSEntry.css';
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -498,9 +499,9 @@ const POSEntry = () => {
     const currentTableStatus = tables.find(t => t.id === selectedTable)?.status || 'available';
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', height: '100vh', fontFamily: 'Inter, sans-serif' }}>
+        <div className="pos-container">
             {/* LEFT: Menu Selection */}
-            <div style={{ padding: '1rem', overflowY: 'auto', backgroundColor: '#f3f4f6' }}>
+            <div className="pos-left-panel">
 
                 {/* TOP BAR: Service Type */}
                 <div style={{ marginBottom: '1rem', backgroundColor: 'white', padding: '1rem', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -649,7 +650,7 @@ const POSEntry = () => {
             </div>
 
             {/* RIGHT: Cart & Order Status */}
-            <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: 'white', borderLeft: '1px solid #e5e7eb', boxShadow: '-4px 0 15px rgba(0,0,0,0.05)' }}>
+            <div className="pos-right-panel">
 
                 {/* Header with Table Info */}
                 <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -663,7 +664,7 @@ const POSEntry = () => {
                     )}
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="pos-order-content">
 
                     {/* EXISTING ORDERS (Read Only) */}
                     {existingItems.length > 0 && (

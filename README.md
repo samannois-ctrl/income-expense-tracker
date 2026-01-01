@@ -29,5 +29,5 @@ npm run dev
 ```
 
 ## Default Admin
-- Email: admin@example.com
+- Username: admin
 - Password: admin123
