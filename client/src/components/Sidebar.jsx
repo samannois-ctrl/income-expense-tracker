@@ -52,7 +52,7 @@ const Sidebar = ({ onLinkClick }) => {
                         <span className="sidebar-link-icon">🍜</span>
                         <span>จัดการรายการอาหาร</span>
                     </NavLink>
-                    <NavLink to="/pos" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
+                    <NavLink to="/pos" end className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">🧾</span>
                         <span>บันทึกการขาย</span>
                     </NavLink>
