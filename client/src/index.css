@@ -2249,3 +2249,75 @@ body {
     padding: var(--spacing-md);
   }
 }
+
+/* ============================================
+   Payment Modal New Styles
+   ============================================ */
+
+.payment-modal-wrapper {
+  background-color: #fff;
+  border-radius: 24px;
+  padding: 2rem;
+  width: 900px;
+  max-width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+.payment-modal-content {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 2rem;
+  overflow: hidden;
+  flex: 1;
+}
+
+.payment-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .payment-modal-wrapper {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    padding: 1rem;
+  }
+
+  .payment-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow-y: auto;
+  }
+
+  .payment-modal-content>div {
+    overflow: visible;
+    /* Let children expand */
+  }
+
+  /* Adjust header for mobile */
+  .payment-modal-header h2 {
+    font-size: 1.5rem !important;
+  }
+
+  /* Make inputs and buttons touch-friendly */
+  .payment-modal-content button {
+    min-height: 54px;
+  }
+
+  .payment-modal-content input {
+    font-size: 1.5rem !important;
+  }
+}

@@ -15,9 +15,17 @@ const POSEntry = () => {
     const [configs, setConfigs] = useState([]);
 
     // Tables & Order Type
+    // Tables & Order Type
     const [tables, setTables] = useState([]);
     const [selectedTable, setSelectedTable] = useState(null); // Table ID
     const [orderType, setOrderType] = useState('dine_in'); // 'dine_in' | 'take_away'
+
+    // Take Away State
+    const [activeTakeaways, setActiveTakeaways] = useState([]);
+    const [selectedSaleId, setSelectedSaleId] = useState(null); // For appending to existing Take Away
+    const [isNewTakeAwayMode, setIsNewTakeAwayMode] = useState(false);
+    const [customerDetails, setCustomerDetails] = useState({ name: '', phone: '' });
+    const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
     // Selection State
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -26,11 +34,18 @@ const POSEntry = () => {
     // The "Building" Order Item
     const [currentSelections, setCurrentSelections] = useState({});
 
-    // Cart (New Items to be sent - Per Table)
+    // Cart (New Items to be sent - Per Table or Sale)
     const [cartsByTable, setCartsByTable] = useState({});
 
     // Derive current cart based on selection
-    const currentCartKey = selectedTable ? `table-${selectedTable}` : (orderType === 'take_away' ? 'take-away' : 'none');
+    let currentCartKey = 'none';
+    if (orderType === 'dine_in' && selectedTable) {
+        currentCartKey = `table-${selectedTable}`;
+    } else if (orderType === 'take_away') {
+        if (selectedSaleId) currentCartKey = `sale-${selectedSaleId}`; // Existing Order
+        else if (isNewTakeAwayMode) currentCartKey = `take-away-new`;   // New Order
+    }
+
     const cart = (currentCartKey !== 'none' && cartsByTable[currentCartKey]) ? cartsByTable[currentCartKey] : [];
 
     const updateCurrentCart = (newCartOrFunc) => {
@@ -65,6 +80,17 @@ const POSEntry = () => {
         }
     };
 
+    const fetchActiveTakeaways = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const res = await fetch(`${API_URL}/pos/active-takeaway`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const json = await res.json();
+            setActiveTakeaways(json.data || []);
+        } catch (e) {
+            console.error("Error fetching active takeaways", e);
+        }
+    };
+
     useEffect(() => {
         const fetchData = async () => {
             const token = localStorage.getItem('token');
@@ -87,21 +113,46 @@ const POSEntry = () => {
     }, []);
 
     // When Table Selected, fetch active session items if any
+    // When mode changes, refresh data
     useEffect(() => {
-        if (!selectedTable && orderType === 'dine_in') {
-            setExistingItems([]);
-            setExistingTotal(0);
-            return;
-        }
-
-        const activeTable = tables.find(t => t.id === selectedTable);
-        if (activeTable && activeTable.current_sale_id) {
-            fetchSaleDetails(activeTable.current_sale_id);
+        if (orderType === 'dine_in') {
+            fetchTables();
+            setSelectedSaleId(null);
+            setIsNewTakeAwayMode(false);
         } else {
-            setExistingItems([]);
-            setExistingTotal(0);
+            fetchActiveTakeaways();
+            setSelectedTable(null);
         }
-    }, [selectedTable, tables, orderType]);
+    }, [orderType]);
+
+    // When Selection Changes (Table or Sale), fetch details
+    useEffect(() => {
+        // Dine In Logic
+        if (orderType === 'dine_in') {
+            if (!selectedTable) {
+                setExistingItems([]);
+                setExistingTotal(0);
+                return;
+            }
+            const activeTable = tables.find(t => t.id === selectedTable);
+            if (activeTable && activeTable.current_sale_id) {
+                fetchSaleDetails(activeTable.current_sale_id);
+            } else {
+                setExistingItems([]);
+                setExistingTotal(0);
+            }
+        }
+        // Take Away Logic
+        else if (orderType === 'take_away') {
+            if (selectedSaleId) {
+                fetchSaleDetails(selectedSaleId);
+            } else {
+                setExistingItems([]);
+                setExistingTotal(0);
+                // If New Mode, we start empty (handled by cart)
+            }
+        }
+    }, [selectedTable, tables, orderType, selectedSaleId]);
 
     const fetchSaleDetails = async (saleId) => {
         const token = localStorage.getItem('token');
@@ -326,6 +377,39 @@ const POSEntry = () => {
         }
     };
 
+    // --- Take Away Handlers ---
+
+    const handleNewTakeAway = () => {
+        setCustomerDetails({ name: '', phone: '' });
+        setShowNewOrderModal(true);
+    };
+
+    const confirmNewTakeAway = () => {
+        if (!customerDetails.name) {
+            alert("Customer Name is required");
+            return;
+        }
+        setShowNewOrderModal(false);
+        setIsNewTakeAwayMode(true);
+        setSelectedSaleId(null);
+        setSelectedTable(null);
+        setExistingItems([]);
+        setExistingTotal(0);
+    };
+
+    const handleSelectTakeAway = (sale) => {
+        setIsNewTakeAwayMode(false);
+        setSelectedSaleId(sale.id);
+        setCustomerDetails({ name: sale.customerName, phone: sale.notes || '' });
+    };
+
+    const handleBackToTakeAwayList = () => {
+        setIsNewTakeAwayMode(false);
+        setSelectedSaleId(null);
+        setCustomerDetails({ name: '', phone: '' });
+        fetchActiveTakeaways();
+    };
+
     // --- Action Handlers ---
 
     // 1. Send Order (Create/Append Session)
@@ -346,7 +430,11 @@ const POSEntry = () => {
                 body: JSON.stringify({
                     items: itemsWithTotal,
                     tableId: selectedTable,
-                    orderType: orderType
+                    orderType: orderType,
+                    // Take Away Fields
+                    customerName: customerDetails.name,
+                    notes: customerDetails.phone, // Using notes field for phone
+                    saleId: selectedSaleId // If appending
                 })
             });
 
@@ -359,7 +447,17 @@ const POSEntry = () => {
             // Success
             alert("Order Sent!");
             updateCurrentCart([]); // Clear cart for CURRENT TABLE/MODE
-            await fetchTables(); // Refresh table status
+
+            if (orderType === 'dine_in') {
+                await fetchTables(); // Refresh table status
+            } else {
+                await fetchActiveTakeaways(); // Refresh list
+                setIsNewTakeAwayMode(false); // Exit new mode
+                // If it was new, we might want to auto-select the created one?
+                // For simplicity, return to list or stay on the same sale?
+                // Data returns saleId.
+                if (data.saleId) setSelectedSaleId(data.saleId);
+            }
 
             // Re-fetch existing items to show them in "Previous Orders"
             if (data.saleId) {
@@ -401,8 +499,8 @@ const POSEntry = () => {
         try {
             const token = localStorage.getItem('token');
             const activeTable = tables.find(t => t.id === selectedTable);
-            // Use table's sale ID OR the last tracked sale ID (for Take Away)
-            const saleIdToPay = activeTable?.current_sale_id || lastOrderSaleId;
+            // Use table's sale ID OR the specifically selected Sale ID (Take Away)
+            const saleIdToPay = activeTable?.current_sale_id || selectedSaleId;
 
             if (!saleIdToPay) {
                 alert("No active order to pay for.");
@@ -426,7 +524,13 @@ const POSEntry = () => {
             setLastOrderSaleId(null); // Clear tracked ID
             setExistingItems([]); // Clear display
             setExistingTotal(0);
-            await fetchTables(); // Refresh (Table should be 'paid' now)
+
+            if (orderType === 'dine_in') {
+                await fetchTables();
+            } else {
+                setSelectedSaleId(null);
+                await fetchActiveTakeaways();
+            }
         } catch (e) {
             console.error(e);
             alert("Payment Error");
@@ -587,7 +691,83 @@ const POSEntry = () => {
                     </div>
                 )}
 
-                {/* Categories */}
+                {/* TAKE AWAY SECTION (List) */}
+                {orderType === 'take_away' && !selectedSaleId && !isNewTakeAwayMode && (
+                    <div style={{ marginBottom: '1.5rem', backgroundColor: 'white', padding: '1rem', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#374151' }}>Active Orders:</span>
+                            <button
+                                onClick={handleNewTakeAway}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', backgroundColor: '#d97706',
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'white', fontWeight: 'bold',
+                                    boxShadow: '0 2px 4px rgba(217, 119, 6, 0.3)'
+                                }}
+                            >
+                                + New Order
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.8rem' }}>
+                            {/* Active Take Aways */}
+                            {activeTakeaways.map(sale => (
+                                <button
+                                    key={sale.id}
+                                    onClick={() => handleSelectTakeAway(sale)}
+                                    style={{
+                                        padding: '1rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid #e5e7eb',
+                                        backgroundColor: 'white',
+                                        color: '#374151',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'flex-start',
+                                        textAlign: 'left',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
+                                        <span style={{ fontWeight: 'bold', color: '#d97706' }}>#{sale.paper_order_ref.split('-')[2] || 'REF'}</span>
+                                        <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{new Date(sale.saleDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '4px' }}>{sale.customerName || 'Unknown'}</div>
+                                    <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                                        {sale.notes ? `📞 ${sale.notes}` : 'No Phone'}
+                                    </div>
+                                    <div style={{ marginTop: 'auto', paddingTop: '8px', width: '100%', borderTop: '1px dashed #e5e7eb', textAlign: 'right', fontWeight: 'bold', color: '#059669' }}>
+                                        {Number(sale.totalAmount).toLocaleString()} ฿
+                                    </div>
+                                </button>
+                            ))}
+
+                            {activeTakeaways.length === 0 && (
+                                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                                    No active take away orders. Create a new one!
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* TAKE AWAY ORDER HEADER (When Active) */}
+                {orderType === 'take_away' && (selectedSaleId || isNewTakeAwayMode) && (
+                    <div style={{ marginBottom: '1.5rem', backgroundColor: '#fffbeb', padding: '1rem', borderRadius: '16px', border: '1px solid #fcd34d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontSize: '0.85rem', color: '#92400e', fontWeight: 'bold', textTransform: 'uppercase' }}>Current Order</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#78350f' }}>
+                                {customerDetails.name} {customerDetails.phone && <span style={{ fontSize: '0.9rem', fontWeight: 'normal' }}>({customerDetails.phone})</span>}
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleBackToTakeAwayList}
+                            style={{ padding: '0.5rem 1rem', backgroundColor: 'white', border: '1px solid #fcd34d', borderRadius: '8px', color: '#92400e', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            ← Back to List
+                        </button>
+                    </div>
+                )}
                 <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                     {categories.map(cat => (
                         <button
@@ -660,6 +840,11 @@ const POSEntry = () => {
                     {selectedTable && (
                         <span style={{ fontWeight: 'bold', color: '#6b7280' }}>
                             #{selectedTable}
+                        </span>
+                    )}
+                    {selectedSaleId && (
+                        <span style={{ fontWeight: 'bold', color: '#d97706' }}>
+                            Take Away
                         </span>
                     )}
                 </div>
@@ -815,228 +1000,391 @@ const POSEntry = () => {
                 </div>
             </div>
 
-            {/* MODAL: Option Selection */}
-            {selectedMenu && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-                    display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '0', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-                        {/* Header */}
-                        <div style={{ padding: '2rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' }}>
-                            <div>
-                                <h2 style={{ margin: 0, fontSize: '2rem', color: '#111827' }}>{selectedMenu.name}</h2>
-                                <span style={{ color: '#059669', fontSize: '1.25rem', fontWeight: '600' }}>{selectedMenu.base_price} ฿</span>
+            {/* Modal: New Take Away Customer */}
+            {
+                showNewOrderModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                    }}>
+                        <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '400px' }}>
+                            <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>🥡 New Take Away Order</h2>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Customer Name *</label>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={customerDetails.name}
+                                    onChange={e => setCustomerDetails({ ...customerDetails, name: e.target.value })}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '1rem' }}
+                                    placeholder="e.g. John"
+                                />
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <button
-                                    className="btn"
-                                    onClick={toggleTakeAway}
-                                    style={{
-                                        padding: '0.5rem 1rem',
-                                        borderRadius: '20px',
-                                        border: isTakeAway ? '2px solid #d97706' : '1px solid #ccc',
-                                        backgroundColor: isTakeAway ? '#fffbeb' : 'white',
-                                        color: isTakeAway ? '#d97706' : '#666',
-                                        fontWeight: 'bold',
-                                        marginRight: '1rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem'
-                                    }}
-                                >
-                                    {isTakeAway ? '🥡 Take Away' : '🍽️ Dine-in'}
-                                </button>
+                            <div style={{ marginBottom: '2rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Phone Number (Optional)</label>
+                                <input
+                                    type="tel"
+                                    value={customerDetails.phone}
+                                    onChange={e => setCustomerDetails({ ...customerDetails, phone: e.target.value })}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '1rem' }}
+                                    placeholder="e.g. 081-234-5678"
+                                />
+                            </div>
 
+                            <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button
-                                    className="btn"
-                                    onClick={() => setSelectedMenu(null)}
-                                    style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}
+                                    onClick={() => setShowNewOrderModal(false)}
+                                    style={{ flex: 1, padding: '1rem', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: 'white', cursor: 'pointer', fontWeight: 'bold' }}
                                 >
-                                    ✕
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmNewTakeAway}
+                                    style={{ flex: 1, padding: '1rem', borderRadius: '12px', border: 'none', backgroundColor: '#d97706', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                    Start Order
                                 </button>
                             </div>
-                        </div>
-
-                        {/* Options Body */}
-                        <div style={{ padding: '2rem' }}>
-                            {activeGroups.length === 0 && <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '1.2rem' }}>No options available for this item.</p>}
-
-                            {activeGroups.map(group => (
-                                <div key={group.id} style={{ marginBottom: '2.5rem' }}>
-                                    <h3 style={{ marginBottom: '1rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1.4rem' }}>
-                                        {group.name}
-                                        <span style={{ fontSize: '0.9rem', fontWeight: 'normal', backgroundColor: '#f3f4f6', color: '#6b7280', padding: '4px 12px', borderRadius: '20px' }}>
-                                            {group.selection_type === 'single' ? 'Pick 1' : 'Pick Any'}
-                                        </span>
-                                        {group.is_optional === 0 && (
-                                            <span style={{ fontSize: '0.9rem', color: '#dc2626', backgroundColor: '#fee2e2', padding: '4px 12px', borderRadius: '20px' }}>
-                                                Required
-                                            </span>
-                                        )}
-                                    </h3>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
-                                        {options.filter(o => o.group_id === group.id).map(opt => {
-                                            const isSelected = group.selection_type === 'multiple'
-                                                ? (currentSelections[group.id]?.[opt.id])
-                                                : (currentSelections[group.id] === opt.id);
-
-                                            return (
-                                                <button
-                                                    key={opt.id}
-                                                    onClick={() => handleSelectOption(group.id, opt.id, group.selection_type)}
-                                                    style={{
-                                                        padding: '1rem',
-                                                        borderRadius: '16px',
-                                                        border: isSelected ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                                                        backgroundColor: isSelected ? '#eff6ff' : 'white',
-                                                        color: isSelected ? '#1d4ed8' : '#374151',
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        height: '100px',
-                                                        transition: 'all 0.1s'
-                                                    }}
-                                                >
-                                                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.25rem' }}>{opt.name}</div>
-                                                    <div style={{ fontSize: '0.9rem', color: isSelected ? '#2563eb' : '#6b7280' }}>
-                                                        {opt.price_adjustment > 0 ? `+${opt.price_adjustment}฿` : 'Free'}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Footer */}
-                        <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                            <button
-                                className="btn btn-primary btn-lg btn-block"
-                                style={{ height: '70px', fontSize: '1.5rem', borderRadius: '16px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)' }}
-                                onClick={addToCart}
-                            >
-                                Add to Order — {calculateCurrentPrice()} ฿
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* MODAL: Option Selection */}
+            {
+                selectedMenu && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                        display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+                    }}>
+                        <div className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '0', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                            {/* Header */}
+                            <div style={{ padding: '2rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' }}>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '2rem', color: '#111827' }}>{selectedMenu.name}</h2>
+                                    <span style={{ color: '#059669', fontSize: '1.25rem', fontWeight: '600' }}>{selectedMenu.base_price} ฿</span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <button
+                                        className="btn"
+                                        onClick={toggleTakeAway}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '20px',
+                                            border: isTakeAway ? '2px solid #d97706' : '1px solid #ccc',
+                                            backgroundColor: isTakeAway ? '#fffbeb' : 'white',
+                                            color: isTakeAway ? '#d97706' : '#666',
+                                            fontWeight: 'bold',
+                                            marginRight: '1rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem'
+                                        }}
+                                    >
+                                        {isTakeAway ? '🥡 Take Away' : '🍽️ Dine-in'}
+                                    </button>
+
+                                    <button
+                                        className="btn"
+                                        onClick={() => setSelectedMenu(null)}
+                                        style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Options Body */}
+                            <div style={{ padding: '2rem' }}>
+                                {activeGroups.length === 0 && <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '1.2rem' }}>No options available for this item.</p>}
+
+                                {activeGroups.map(group => (
+                                    <div key={group.id} style={{ marginBottom: '2.5rem' }}>
+                                        <h3 style={{ marginBottom: '1rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1.4rem' }}>
+                                            {group.name}
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 'normal', backgroundColor: '#f3f4f6', color: '#6b7280', padding: '4px 12px', borderRadius: '20px' }}>
+                                                {group.selection_type === 'single' ? 'Pick 1' : 'Pick Any'}
+                                            </span>
+                                            {group.is_optional === 0 && (
+                                                <span style={{ fontSize: '0.9rem', color: '#dc2626', backgroundColor: '#fee2e2', padding: '4px 12px', borderRadius: '20px' }}>
+                                                    Required
+                                                </span>
+                                            )}
+                                        </h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+                                            {options.filter(o => o.group_id === group.id).map(opt => {
+                                                const isSelected = group.selection_type === 'multiple'
+                                                    ? (currentSelections[group.id]?.[opt.id])
+                                                    : (currentSelections[group.id] === opt.id);
+
+                                                return (
+                                                    <button
+                                                        key={opt.id}
+                                                        onClick={() => handleSelectOption(group.id, opt.id, group.selection_type)}
+                                                        style={{
+                                                            padding: '1rem',
+                                                            borderRadius: '16px',
+                                                            border: isSelected ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                                                            backgroundColor: isSelected ? '#eff6ff' : 'white',
+                                                            color: isSelected ? '#1d4ed8' : '#374151',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            height: '100px',
+                                                            transition: 'all 0.1s'
+                                                        }}
+                                                    >
+                                                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.25rem' }}>{opt.name}</div>
+                                                        <div style={{ fontSize: '0.9rem', color: isSelected ? '#2563eb' : '#6b7280' }}>
+                                                            {opt.price_adjustment > 0 ? `+${opt.price_adjustment}฿` : 'Free'}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Footer */}
+                            <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                                <button
+                                    className="btn btn-primary btn-lg btn-block"
+                                    style={{ height: '70px', fontSize: '1.5rem', borderRadius: '16px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)' }}
+                                    onClick={addToCart}
+                                >
+                                    Add to Order — {calculateCurrentPrice()} ฿
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             {/* MODAL: Payment / Check Bill */}
-            {showPaymentModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-                    display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100
-                }}>
-                    <div style={{ backgroundColor: '#fff', borderRadius: '24px', padding: '3rem', width: '500px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💸</div>
-                        <h2 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', color: '#111827' }}>Payment</h2>
-                        <div style={{ fontSize: '1.2rem', color: '#6b7280', marginBottom: '2rem' }}>Table #{selectedTable}</div>
+            {
+                showPaymentModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+                        display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100
+                    }}>
+                        <div className="payment-modal-wrapper">
 
-                        <div style={{ fontSize: '4rem', fontWeight: '800', color: '#111827', marginBottom: '2rem' }}>
-                            {grandTotal.toLocaleString()} ฿
-                        </div>
+                            {/* Header */}
+                            <div className="payment-modal-header">
+                                <div>
+                                    <h2 style={{ fontSize: '2rem', margin: 0, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span>💸 Payment</span>
+                                    </h2>
+                                    <div style={{ fontSize: '1.1rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                                        {orderType === 'dine_in'
+                                            ? `Table #${selectedTable}`
+                                            : `Take Away • ${customerDetails.name} ${customerDetails.phone ? '(' + customerDetails.phone + ')' : ''}`
+                                        }
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowPaymentModal(false)}
+                                    style={{ background: 'transparent', border: 'none', fontSize: '2rem', cursor: 'pointer', color: '#9ca3af' }}
+                                >
+                                    ×
+                                </button>
+                            </div>
 
-                        <div style={{ marginBottom: '2rem', textAlign: 'left', backgroundColor: '#f9fafb', padding: '1.5rem', borderRadius: '16px' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '1.1rem' }}>Cash Received (฿)</label>
-                            <input
-                                type="number"
-                                autoFocus
-                                value={cashReceived}
-                                onChange={e => setCashReceived(e.target.value)}
-                                style={{
-                                    width: '100%', padding: '1rem', fontSize: '2rem',
-                                    border: '2px solid #e5e7eb', borderRadius: '12px',
-                                    outline: 'none', textAlign: 'right'
-                                }}
-                                placeholder="0"
-                            />
+                            <div className="payment-modal-content">
 
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px dashed #e5e7eb' }}>
-                                <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#4b5563' }}>Change:</span>
-                                <span style={{ fontSize: '2rem', fontWeight: 'bold', color: change < 0 ? '#ef4444' : '#059669' }}>
-                                    {change.toLocaleString()} ฿
-                                </span>
+                                {/* LEFT: Order Summary */}
+                                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                    <h3 style={{ marginTop: 0, color: '#374151' }}>Order Summary</h3>
+                                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1rem' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '1px solid #e5e7eb', color: '#6b7280', textAlign: 'left' }}>
+                                                    <th style={{ paddingBottom: '0.5rem', width: '40px' }}>Qty</th>
+                                                    <th style={{ paddingBottom: '0.5rem' }}>Item</th>
+                                                    <th style={{ paddingBottom: '0.5rem', textAlign: 'right' }}>Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {[...existingItems, ...cart].map((item, idx) => (
+                                                    <tr key={idx} style={{ borderBottom: '1px dashed #f3f4f6' }}>
+                                                        <td style={{ padding: '0.75rem 0', fontWeight: 'bold', color: '#374151' }}>{item.quantity}</td>
+                                                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                                                            <div style={{ color: '#111827' }}>{item.itemName}</div>
+                                                            <div style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
+                                                                {item.options_json
+                                                                    ? JSON.parse(item.options_json).map(o => o.name).join(', ')
+                                                                    : (item.itemOptions || '')}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold' }}>
+                                                            {((item.total_price || (item.unit_price * item.quantity))).toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* RIGHT: Payment Controls */}
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ backgroundColor: '#f9fafb', padding: '1.5rem', borderRadius: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+
+                                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                                            <div style={{ fontSize: '0.9rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Amount</div>
+                                            <div style={{ fontSize: '3.5rem', fontWeight: '800', color: '#111827', lineHeight: 1 }}>
+                                                {grandTotal.toLocaleString()} <span style={{ fontSize: '1.5rem', color: '#9ca3af' }}>฿</span>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ marginBottom: 'auto' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '1.1rem', color: '#374151' }}>Cash Received</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <input
+                                                    type="number"
+                                                    autoFocus
+                                                    value={cashReceived}
+                                                    onChange={e => setCashReceived(e.target.value)}
+                                                    onFocus={e => e.target.select()}
+                                                    onClick={e => e.target.select()}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') confirmPayment();
+                                                    }}
+                                                    style={{
+                                                        width: '100%', padding: '1rem', paddingRight: '3rem', fontSize: '2rem',
+                                                        border: '2px solid #2563eb', borderRadius: '12px',
+                                                        outline: 'none', textAlign: 'right', fontWeight: 'bold', color: '#2563eb', backgroundColor: 'white'
+                                                    }}
+                                                    placeholder="0"
+                                                />
+                                                <span style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', fontSize: '1.5rem', color: '#9ca3af', fontWeight: 'bold' }}>฿</span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    {[100, 200, 300, 400].map(amt => (
+                                                        <button
+                                                            key={amt}
+                                                            onClick={() => setCashReceived(String(amt))}
+                                                            style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer', fontWeight: 'bold', color: '#4b5563', fontSize: '1.25rem' }}
+                                                        >
+                                                            {amt}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    {[500, 1000, 2000].map(amt => (
+                                                        <button
+                                                            key={amt}
+                                                            onClick={() => setCashReceived(String(amt))}
+                                                            style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer', fontWeight: 'bold', color: '#4b5563', fontSize: '1.25rem' }}
+                                                        >
+                                                            {amt}
+                                                        </button>
+                                                    ))}
+                                                    <button
+                                                        onClick={() => setCashReceived(String(grandTotal))}
+                                                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #2563eb', background: '#eff6ff', cursor: 'pointer', fontWeight: 'bold', color: '#2563eb', fontSize: '1.25rem' }}
+                                                    >
+                                                        Exact
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '2px dashed #e5e7eb' }}>
+                                            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#4b5563' }}>Change</span>
+                                            <span style={{ fontSize: '2rem', fontWeight: 'bold', color: change < 0 ? '#ef4444' : '#059669' }}>
+                                                {change.toLocaleString()} ฿
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                        <button
+                                            className="btn btn-secondary"
+                                            onClick={() => setShowPaymentModal(false)}
+                                            style={{ flex: 1, height: '60px', borderRadius: '16px', fontSize: '1.2rem' }}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={confirmPayment}
+                                            style={{ flex: 2, height: '60px', borderRadius: '16px', fontSize: '1.2rem', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.4)' }}
+                                        >
+                                            Confirm Payment
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <button
-                            className="btn btn-primary btn-lg btn-block"
-                            onClick={confirmPayment}
-                            style={{ height: '70px', fontSize: '1.5rem', borderRadius: '16px', fontWeight: 'bold', marginBottom: '1rem' }}
-                        >
-                            Confirm Payment
-                        </button>
-                        <button
-                            className="btn btn-secondary btn-block"
-                            onClick={() => setShowPaymentModal(false)}
-                            style={{ borderRadius: '16px', padding: '1rem' }}
-                        >
-                            Cancel
-                        </button>
                     </div>
-                </div>
-            )}
+                )
+            }
             {/* MODAL: Move Table */}
-            {showMoveModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-                    display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200
-                }}>
-                    <div style={{ backgroundColor: '#fff', borderRadius: '24px', padding: '2rem', width: '500px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-                        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#111827' }}>Move Table</h2>
-                        <p style={{ marginBottom: '1.5rem', color: '#666' }}>Select the new table for the current order.</p>
+            {
+                showMoveModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                        display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200
+                    }}>
+                        <div style={{ backgroundColor: '#fff', borderRadius: '24px', padding: '2rem', width: '500px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#111827' }}>Move Table</h2>
+                            <p style={{ marginBottom: '1.5rem', color: '#666' }}>Select the new table for the current order.</p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '1rem', maxHeight: '400px', overflowY: 'auto', padding: '1rem', border: '1px solid #eee', borderRadius: '12px', marginBottom: '2rem' }}>
-                            {tables.filter(t => t.status === 'available' || t.status === 'paid').map(t => (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '1rem', maxHeight: '400px', overflowY: 'auto', padding: '1rem', border: '1px solid #eee', borderRadius: '12px', marginBottom: '2rem' }}>
+                                {tables.filter(t => t.status === 'available' || t.status === 'paid').map(t => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => setTargetTableId(t.id)}
+                                        disabled={t.status !== 'available'}
+                                        style={{
+                                            padding: '1rem',
+                                            borderRadius: '12px',
+                                            border: targetTableId === t.id ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                                            backgroundColor: targetTableId === t.id ? '#eff6ff' : (t.status === 'available' ? 'white' : '#f3f4f6'),
+                                            color: targetTableId === t.id ? '#1d4ed8' : '#374151',
+                                            cursor: t.status === 'available' ? 'pointer' : 'not-allowed',
+                                            opacity: t.status === 'available' ? 1 : 0.5
+                                        }}
+                                    >
+                                        <div style={{ fontWeight: 'bold' }}>{t.name}</div>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button
-                                    key={t.id}
-                                    onClick={() => setTargetTableId(t.id)}
-                                    disabled={t.status !== 'available'}
-                                    style={{
-                                        padding: '1rem',
-                                        borderRadius: '12px',
-                                        border: targetTableId === t.id ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                                        backgroundColor: targetTableId === t.id ? '#eff6ff' : (t.status === 'available' ? 'white' : '#f3f4f6'),
-                                        color: targetTableId === t.id ? '#1d4ed8' : '#374151',
-                                        cursor: t.status === 'available' ? 'pointer' : 'not-allowed',
-                                        opacity: t.status === 'available' ? 1 : 0.5
-                                    }}
+                                    className="btn btn-secondary"
+                                    onClick={() => { setShowMoveModal(false); setTargetTableId(''); }}
+                                    style={{ flex: 1, height: '50px', borderRadius: '12px', fontSize: '1.1rem' }}
                                 >
-                                    <div style={{ fontWeight: 'bold' }}>{t.name}</div>
+                                    Cancel
                                 </button>
-                            ))}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button
-                                className="btn btn-secondary"
-                                onClick={() => { setShowMoveModal(false); setTargetTableId(''); }}
-                                style={{ flex: 1, height: '50px', borderRadius: '12px', fontSize: '1.1rem' }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleMoveTable}
-                                disabled={!targetTableId}
-                                style={{ flex: 1, height: '50px', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold' }}
-                            >
-                                Confirm Move
-                            </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleMoveTable}
+                                    disabled={!targetTableId}
+                                    style={{ flex: 1, height: '50px', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold' }}
+                                >
+                                    Confirm Move
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

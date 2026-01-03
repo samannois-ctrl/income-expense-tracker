@@ -14,7 +14,7 @@ const generateSaleNumber = () => {
 // Create Sale
 // Create or Append Order (Session Management)
 router.post('/sales', auth, async (req, res) => {
-    const { customerName, paymentMethod, notes, items, tableId, orderType } = req.body;
+    const { customerName, paymentMethod, notes, items, tableId, orderType, saleId: providedSaleId } = req.body; // Added saleId (optional)
     const userId = req.user.id;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -26,53 +26,66 @@ router.post('/sales', auth, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        let saleId;
+        let saleId = providedSaleId;
         let saleResult;
 
-        // 1. Check for existing active session for this table
+        // 1. Determine Sale ID (Append vs Create)
+
+        // CASE A: Table is provided -> Prioritize Table's Active Session
         if (tableId) {
             const [table] = await connection.query('SELECT current_sale_id, status FROM tables WHERE id = ?', [tableId]);
             if (table && table[0] && table[0].current_sale_id) {
                 // Existing Session: Append to it
                 saleId = table[0].current_sale_id;
-
-                // Fetch current total to update it
-                const [currentSale] = await connection.query('SELECT totalAmount FROM sales WHERE id = ?', [saleId]);
-                let newTotal = Number(currentSale[0].totalAmount);
-                const addedTotal = items.reduce((sum, item) => sum + (item.total_price * item.quantity), 0);
-                newTotal += addedTotal;
-
-                // Update Sale Total
-                await connection.query('UPDATE sales SET totalAmount = ? WHERE id = ?', [newTotal, saleId]);
-
             } else {
-                // No Active Session: Create New
-                const saleNumber = generateSaleNumber();
-                // FIX: item.total_price is already (unit * qty) from frontend
-                const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
-
-                const [res] = await connection.query(
-                    `INSERT INTO sales (userId, totalAmount, paymentMethod, customerName, paper_order_ref, notes, table_id, order_type, saleDate, status) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'open')`,
-                    [userId, totalAmount, null, customerName || null, saleNumber, notes || null, tableId, orderType || 'dine_in']
-                );
-                saleId = res.insertId;
-
-                // Link to Table and Set Occupied
-                await connection.query('UPDATE tables SET current_sale_id = ?, status = "occupied" WHERE id = ?', [saleId, tableId]);
+                // No Active Session logic flows to creation below
+                saleId = null;
             }
+        }
+
+        // CASE B: providedSaleId exists (e.g. Appending to specific Take Away order)
+        // (Already set saleId = providedSaleId above)
+
+        if (saleId) {
+            // --- APPEND MODE ---
+            // Fetch current total to update it
+            const [currentSale] = await connection.query('SELECT totalAmount FROM sales WHERE id = ?', [saleId]);
+            if (!currentSale || currentSale.length === 0) {
+                throw new Error("Active order not found");
+            }
+
+            let newTotal = Number(currentSale[0].totalAmount);
+            const addedTotal = items.reduce((sum, item) => sum + (item.total_price * item.quantity), 0);
+            newTotal += addedTotal;
+
+            // Update Sale Total
+            await connection.query('UPDATE sales SET totalAmount = ? WHERE id = ?', [newTotal, saleId]);
+
         } else {
-            // No Table (Take Away / Direct)
+            // --- CREATE MODE ---
             const saleNumber = generateSaleNumber();
-            // FIX: item.total_price is already (unit * qty) from frontend
             const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
+
+            // Determine specific fields
+            let insertTableId = null;
+            let insertOrderType = orderType || 'take_away';
+
+            if (tableId) {
+                insertTableId = tableId;
+                insertOrderType = 'dine_in';
+            }
 
             const [res] = await connection.query(
                 `INSERT INTO sales (userId, totalAmount, paymentMethod, customerName, paper_order_ref, notes, table_id, order_type, saleDate, status) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'open')`,
-                [userId, totalAmount, paymentMethod || 'cash', customerName || null, saleNumber, notes || null, null, orderType || 'take_away']
+                [userId, totalAmount, paymentMethod || 'cash', customerName || null, saleNumber, notes || null, insertTableId, insertOrderType]
             );
             saleId = res.insertId;
+
+            // If Table, Link it
+            if (tableId) {
+                await connection.query('UPDATE tables SET current_sale_id = ?, status = "occupied" WHERE id = ?', [saleId, tableId]);
+            }
         }
 
         // 2. Insert Items (Append)
@@ -102,6 +115,21 @@ router.post('/sales', auth, async (req, res) => {
         res.status(500).json({ error: error.message });
     } finally {
         connection.release();
+    }
+});
+
+// Get Active Take Away Orders
+router.get('/active-takeaway', auth, async (req, res) => {
+    try {
+        const sales = await db.prepare(`
+            SELECT id, customerName, paper_order_ref, totalAmount, notes, saleDate, status
+            FROM sales 
+            WHERE status = 'open' AND order_type = 'take_away'
+            ORDER BY saleDate DESC
+        `).all();
+        res.json({ data: sales });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
