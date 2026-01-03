@@ -5,7 +5,7 @@ import './POSHistory.css';
 const API_URL = 'http://localhost:3001/api';
 
 const POSHistory = () => {
-    const { t } = useSettings();
+    const { t, language } = useSettings();
     const [sales, setSales] = useState([]);
     const [expandedSale, setExpandedSale] = useState(null);
     const [saleDetails, setSaleDetails] = useState([]);
@@ -58,9 +58,9 @@ const POSHistory = () => {
         }).format(amount);
     };
 
-    const formatDate = (dateString) => { // Use simple replacement if date-fns not available, or just toLocaleString
+    const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleString('th-TH', {
+        return date.toLocaleString(language === 'th' ? 'th-TH' : 'en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -72,7 +72,7 @@ const POSHistory = () => {
     if (loading) {
         return (
             <div className="main-content flex-center">
-                <div className="text-muted">Loading history...</div>
+                <div className="text-muted">{t('posHistory.loading')}</div>
             </div>
         );
     }
@@ -80,19 +80,19 @@ const POSHistory = () => {
     return (
         <div className="main-content">
             <div className="page-header">
-                <h1 className="page-title">Sales History</h1>
-                <div className="page-subtitle">View and manage your point of sale transactions</div>
+                <h1 className="page-title">{t('posHistory.title')}</h1>
+                <div className="page-subtitle">{t('posHistory.subtitle')}</div>
             </div>
 
             <div className="table-container">
                 <table className="table">
                     <thead>
                         <tr>
-                            <th style={{ width: '20%' }}>Time</th>
-                            <th style={{ width: '25%' }}>Sale #</th>
-                            <th style={{ width: '15%' }} className="text-center">Items</th>
-                            <th style={{ width: '20%' }} className="text-right">Total</th>
-                            <th style={{ width: '20%' }} className="text-center">Actions</th>
+                            <th style={{ width: '20%' }}>{t('posHistory.time')}</th>
+                            <th style={{ width: '25%' }}>{t('posHistory.saleNumber')}</th>
+                            <th style={{ width: '15%' }} className="text-center">{t('posHistory.items')}</th>
+                            <th style={{ width: '20%' }} className="text-right">{t('posHistory.total')}</th>
+                            <th style={{ width: '20%' }} className="text-center">{t('posHistory.actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -100,7 +100,7 @@ const POSHistory = () => {
                             <tr>
                                 <td colSpan="5" className="empty-state">
                                     <div className="empty-state-icon">🧾</div>
-                                    <div>No sales history found</div>
+                                    <div>{t('posHistory.noHistory')}</div>
                                 </td>
                             </tr>
                         ) : (
@@ -125,7 +125,7 @@ const POSHistory = () => {
                                                     className={`btn btn-sm ${expandedSale === sale.id ? 'btn-primary' : 'btn-secondary'}`}
                                                     onClick={() => toggleDetails(sale.id)}
                                                 >
-                                                    {expandedSale === sale.id ? 'Hide' : 'View Details'}
+                                                    {expandedSale === sale.id ? t('posHistory.hide') : t('posHistory.viewDetails')}
                                                 </button>
                                             </div>
                                         </td>
@@ -135,9 +135,9 @@ const POSHistory = () => {
                                             <td colSpan="5">
                                                 <div className="order-details-card">
                                                     <div className="order-receipt-header">
-                                                        <div className="receipt-title">Order Receipt</div>
+                                                        <div className="receipt-title">{t('posHistory.orderReceipt')}</div>
                                                         <div className="receipt-id">#{sale.paper_order_ref || sale.id}</div>
-                                                        <div className="status-badge status-completed mt-sm">Completed</div>
+                                                        <div className="status-badge status-completed mt-sm">{t('posHistory.completed')}</div>
                                                     </div>
 
                                                     <div className="order-items-list">
@@ -164,11 +164,11 @@ const POSHistory = () => {
 
                                                     <div className="receipt-summary">
                                                         <div className="summary-row">
-                                                            <span>Subtotal</span>
+                                                            <span>{t('posHistory.subtotal')}</span>
                                                             <span>{formatCurrency(sale.totalAmount)}</span>
                                                         </div>
                                                         <div className="summary-row total">
-                                                            <span>Total</span>
+                                                            <span>{t('posHistory.total')}</span>
                                                             <span>{formatCurrency(sale.totalAmount)}</span>
                                                         </div>
                                                     </div>
@@ -182,7 +182,7 @@ const POSHistory = () => {
                     </tbody>
                     <tfoot>
                         <tr className="bg-gray-50 border-t-2 border-gray-200">
-                            <td colSpan="3" className="p-4 text-right font-bold text-gray-700">Total Sales:</td>
+                            <td colSpan="3" className="p-4 text-right font-bold text-gray-700">{t('posHistory.totalSales')}</td>
                             <td className="p-4 text-right font-bold text-xl text-green-600">
                                 {formatCurrency(sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0))}
                             </td>

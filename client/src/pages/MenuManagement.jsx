@@ -425,10 +425,10 @@ const MenuManagement = () => {
     const renderStructureTab = () => (
         <div>
             <div className="card" style={{ marginBottom: '1rem' }}>
-                <h3>Create Category</h3>
+                <h3>{t('menuManagement.createCategory')}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input className="form-input" value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Category Name" />
-                    <button className="btn btn-success" onClick={addCategory}>Add</button>
+                    <input className="form-input" value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder={t('menuManagement.categoryNamePlaceholder')} />
+                    <button className="btn btn-success" onClick={addCategory}>{t('menuManagement.add')}</button>
                 </div>
             </div>
 
@@ -459,7 +459,7 @@ const MenuManagement = () => {
                                             <InlineEdit
                                                 value={cat.name}
                                                 onSave={(val) => updateCategory(cat.id, val)}
-                                                label="Category Name"
+                                                label={t('menuManagement.categoryNamePlaceholder')}
                                             />
                                         </h3>
                                     </div>
@@ -488,7 +488,7 @@ const MenuManagement = () => {
                                                                         <InlineEdit
                                                                             value={menu.name}
                                                                             onSave={(val) => updateMenu(menu.id, { name: val })}
-                                                                            label="Menu Name"
+                                                                            label={t('menuManagement.menuNamePlaceholder')}
                                                                         />
                                                                     </span>
                                                                 </div>
@@ -497,7 +497,7 @@ const MenuManagement = () => {
                                                                         <InlineEdit
                                                                             value={menu.base_price}
                                                                             onSave={(val) => updateMenu(menu.id, { base_price: val })}
-                                                                            label="Price"
+                                                                            label={t('menuManagement.pricePlaceholder')}
                                                                             type="number"
                                                                             suffix="฿"
                                                                         />
@@ -523,7 +523,7 @@ const MenuManagement = () => {
                                                 className="form-input"
                                                 value={newMenuInputs[cat.id]?.name || ''}
                                                 onChange={e => updateMenuInput(cat.id, 'name', e.target.value)}
-                                                placeholder="Menu Name"
+                                                placeholder={t('menuManagement.menuNamePlaceholder')}
                                                 style={{ marginBottom: 0 }}
                                             />
                                             <input
@@ -531,7 +531,7 @@ const MenuManagement = () => {
                                                 type="number"
                                                 value={newMenuInputs[cat.id]?.price || ''}
                                                 onChange={e => updateMenuInput(cat.id, 'price', e.target.value)}
-                                                placeholder="Price"
+                                                placeholder={t('menuManagement.pricePlaceholder')}
                                                 style={{ width: '80px', marginBottom: 0 }}
                                             />
                                             <button className="btn btn-primary btn-sm" onClick={() => addMenu(cat.id)}>+ Menu</button>
@@ -546,7 +546,7 @@ const MenuManagement = () => {
                 <DragOverlay>
                     {activeId ? (
                         <div style={{ padding: '1rem', border: '1px solid #ccc', backgroundColor: '#fff', opacity: 0.8, borderRadius: '4px' }}>
-                            Dragging Item...
+                            {t('menuManagement.dragging')}
                         </div>
                     ) : null}
                 </DragOverlay>
@@ -558,13 +558,13 @@ const MenuManagement = () => {
     const renderOptionsTab = () => (
         <div>
             <div className="card" style={{ marginBottom: '1rem' }}>
-                <h3>Create Option Group</h3>
+                <h3>{t('menuManagement.createOptionGroup')}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <input
                         className="form-input"
                         value={newGroupName}
                         onChange={e => setNewGroupName(e.target.value)}
-                        placeholder="Group Name (e.g. Noodle Type)"
+                        placeholder={t('menuManagement.groupNamePlaceholder')}
                         style={{ marginBottom: 0, flex: 1, minWidth: '200px' }}
                     />
 
@@ -574,8 +574,8 @@ const MenuManagement = () => {
                         onChange={e => setNewGroupType(e.target.value)}
                         style={{ marginBottom: 0, width: 'auto' }}
                     >
-                        <option value="single">Single Select (Radio)</option>
-                        <option value="multiple">Multiple Select (Checkbox)</option>
+                        <option value="single">{t('menuManagement.singleSelect')}</option>
+                        <option value="multiple">{t('menuManagement.multipleSelect')}</option>
                     </select>
 
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -584,10 +584,10 @@ const MenuManagement = () => {
                             checked={newGroupOptional}
                             onChange={e => setNewGroupOptional(e.target.checked)}
                         />
-                        Optional?
+                        {t('menuManagement.optionalQuestion')}
                     </label>
 
-                    <button className="btn btn-success" onClick={addOptionGroup}>Add</button>
+                    <button className="btn btn-success" onClick={addOptionGroup}>{t('menuManagement.add')}</button>
                 </div>
             </div>
 
@@ -600,7 +600,7 @@ const MenuManagement = () => {
                                     <InlineEdit
                                         value={group.name}
                                         onSave={(val) => updateOptionGroup(group.id, val)}
-                                        label="Group Name"
+                                        label={t('menuManagement.groupNamePlaceholder')}
                                     />
                                 </h4>
                                 <div style={{ fontSize: '0.8rem', color: '#666', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -608,9 +608,9 @@ const MenuManagement = () => {
                                         className={`badge ${group.selection_type === 'single' ? 'badge-info' : 'badge-warning'}`}
                                         onClick={() => toggleOptionGroupSelectionType(group)}
                                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                        title="Click to toggle Selection Type"
+                                        title={t('menuManagement.toggleSelectionType')}
                                     >
-                                        {group.selection_type === 'single' ? '🔘 เลือก 1' : '☑️ เลือกได้หลายรายการ'}
+                                        {group.selection_type === 'single' ? `🔘 ${t('menuManagement.selectionSingle')}` : `☑️ ${t('menuManagement.selectionMultiple')}`}
                                     </span>
 
                                     <label style={{
@@ -639,7 +639,7 @@ const MenuManagement = () => {
                                             textTransform: 'uppercase',
                                             fontSize: '0.85rem'
                                         }}>
-                                            Required
+                                            {t('menuManagement.required')}
                                         </span>
                                     </label>
                                 </div>
@@ -654,7 +654,7 @@ const MenuManagement = () => {
                                         <InlineEdit
                                             value={opt.name}
                                             onSave={(val) => updateOption(opt.id, { name: val })}
-                                            label="Option Name"
+                                            label={t('menuManagement.optionNamePlaceholder')}
                                         />
                                     </span>
                                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -662,7 +662,7 @@ const MenuManagement = () => {
                                             +<InlineEdit
                                                 value={opt.price_adjustment}
                                                 onSave={(val) => updateOption(opt.id, { price_adjustment: val })}
-                                                label="Price"
+                                                label={t('menuManagement.pricePlaceholder')}
                                                 type="number"
                                             />
                                         </span>
@@ -677,7 +677,7 @@ const MenuManagement = () => {
                                 className="form-input"
                                 value={newOptionInputs[group.id]?.name || ''}
                                 onChange={e => updateOptionInput(group.id, 'name', e.target.value)}
-                                placeholder="Option Name"
+                                placeholder={t('menuManagement.optionNamePlaceholder')}
                                 style={{ marginBottom: 0, fontSize: '0.9rem' }}
                             />
                             <input
@@ -700,7 +700,7 @@ const MenuManagement = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
             {/* Left: Menu Selector */}
             <div className="card">
-                <h3>Select Menu to Config</h3>
+                <h3>{t('menuManagement.selectMenuToConfig')}</h3>
                 {[...menus].sort((a, b) => {
                     const catA = categories.find(c => c.id === a.category_id);
                     const catB = categories.find(c => c.id === b.category_id);
@@ -727,7 +727,7 @@ const MenuManagement = () => {
                         }}
                     >
                         <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '2px' }}>
-                            {categories.find(c => c.id === menu.category_id)?.name || 'Uncategorized'}
+                            {categories.find(c => c.id === menu.category_id)?.name || t('menuManagement.uncategorized')}
                         </div>
                         <div style={{ fontWeight: '500' }}>{menu.name}</div>
                     </div>
@@ -738,8 +738,8 @@ const MenuManagement = () => {
             <div className="card">
                 {selectedMenu ? (
                     <>
-                        <h2>Configuring: {selectedMenu.name}</h2>
-                        <p>Select which option groups to display for this menu item.</p>
+                        <h2>{t('menuManagement.configuring', { name: selectedMenu.name })}</h2>
+                        <p>{t('menuManagement.configInstruction')}</p>
 
                         <div style={{ display: 'grid', gap: '0.5rem' }}>
                             {optionGroups.map(group => {
@@ -776,7 +776,7 @@ const MenuManagement = () => {
                                             <div>
                                                 <span style={{ fontWeight: 'bold', fontSize: '1.1rem', display: 'block' }}>{group.name}</span>
                                                 <span style={{ fontSize: '0.85rem', color: '#666' }}>
-                                                    {group.selection_type === 'single' ? 'เลือก 1' : 'เลือกได้หลายรายการ'} • {group.is_optional ? 'ไม่บังคับ' : 'บังคับเลือก'}
+                                                    {group.selection_type === 'single' ? t('menuManagement.selectionSingle') : t('menuManagement.selectionMultiple')} • {group.is_optional ? t('menuManagement.optional') : t('menuManagement.forced')}
                                                 </span>
                                             </div>
                                         </div>
@@ -787,7 +787,7 @@ const MenuManagement = () => {
                     </>
                 ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#aaa' }}>
-                        Select a menu from the left list
+                        {t('menuManagement.selectMenuInstruction')}
                     </div>
                 )}
             </div>
@@ -797,13 +797,13 @@ const MenuManagement = () => {
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
             <div className="page-header">
-                <h1 className="page-title">⚙️ Menu Management (Advanced)</h1>
+                <h1 className="page-title">⚙️ {t('menuManagement.advancedTitle')}</h1>
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                <button className={`btn ${activeTab === 'structure' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('structure')}>1. Structure (Menu)</button>
-                <button className={`btn ${activeTab === 'options' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('options')}>2. Options (Toppings)</button>
-                <button className={`btn ${activeTab === 'config' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('config')}>3. Configuration (Link)</button>
+                <button className={`btn ${activeTab === 'structure' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('structure')}>{t('menuManagement.tabStructure')}</button>
+                <button className={`btn ${activeTab === 'options' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('options')}>{t('menuManagement.tabOptions')}</button>
+                <button className={`btn ${activeTab === 'config' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('config')}>{t('menuManagement.tabConfig')}</button>
             </div>
 
             {activeTab === 'structure' && renderStructureTab()}

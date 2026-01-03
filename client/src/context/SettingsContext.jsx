@@ -37,7 +37,7 @@ export const SettingsProvider = ({ children }) => {
     }, [language]);
 
     // Translation function
-    const t = (key) => {
+    const t = (key, params = {}) => {
         const keys = key.split('.');
         let value = translations[language];
 
@@ -48,6 +48,13 @@ export const SettingsProvider = ({ children }) => {
                 // Fallback to key if translation not found
                 return key;
             }
+        }
+
+        // Handle parameter substitution
+        if (typeof value === 'string' && Object.keys(params).length > 0) {
+            return value.replace(/\{(\w+)\}/g, (match, key) => {
+                return params[key] !== undefined ? params[key] : match;
+            });
         }
 
         return value;
