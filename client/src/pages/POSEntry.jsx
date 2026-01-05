@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import './POSEntry.css';
 
@@ -16,9 +17,27 @@ const POSEntry = () => {
 
     // Tables & Order Type
     // Tables & Order Type
+    const location = useLocation();
+    const isQuickSaleMode = location.pathname === '/sales-record';
+
+    // Tables & Order Type
     const [tables, setTables] = useState([]);
     const [selectedTable, setSelectedTable] = useState(null); // Table ID
-    const [orderType, setOrderType] = useState('dine_in'); // 'dine_in' | 'take_away'
+    const [orderType, setOrderType] = useState('dine_in'); // 'dine_in' | 'take_away' | 'quick_sale'
+
+    // Initialize/Reset Mode based on URL
+    useEffect(() => {
+        if (isQuickSaleMode) {
+            setOrderType('quick_sale');
+            setSelectedTable(null);
+            setSelectedSaleId(null);
+            setIsNewTakeAwayMode(false);
+            setExistingItems([]);
+            setExistingTotal(0);
+        } else {
+            setOrderType('dine_in'); // Default back to dine_in when leaving
+        }
+    }, [isQuickSaleMode]);
 
     // Take Away State
     const [activeTakeaways, setActiveTakeaways] = useState([]);
@@ -44,6 +63,8 @@ const POSEntry = () => {
     } else if (orderType === 'take_away') {
         if (selectedSaleId) currentCartKey = `sale-${selectedSaleId}`; // Existing Order
         else if (isNewTakeAwayMode) currentCartKey = `take-away-new`;   // New Order
+    } else if (orderType === 'quick_sale') {
+        currentCartKey = 'quick-sale-cart';
     }
 
     const cart = (currentCartKey !== 'none' && cartsByTable[currentCartKey]) ? cartsByTable[currentCartKey] : [];
@@ -151,6 +172,10 @@ const POSEntry = () => {
                 setExistingTotal(0);
                 // If New Mode, we start empty (handled by cart)
             }
+        }
+        // Quick Sale Logic
+        else if (orderType === 'quick_sale') {
+            // Started empty, waiting for cart items
         }
     }, [selectedTable, tables, orderType, selectedSaleId]);
 
@@ -265,8 +290,12 @@ const POSEntry = () => {
     const addToCart = () => {
         if (!selectedMenu) return;
         if (currentCartKey === 'none') {
-            alert("Please select a table first or choose Take Away.");
-            return;
+            if (orderType !== 'quick_sale') {
+                alert("Please select a table first or choose Take Away.");
+                return;
+            }
+            // Should be covered by logic above, but fallback
+            currentCartKey = 'quick-sale-cart';
         }
 
         const selectedOptNames = [];
@@ -473,6 +502,67 @@ const POSEntry = () => {
         }
     };
 
+    // Quick Sale: Save = Create Sale + Immediate Pay (Exact Amount)
+    const handleQuickSave = async () => {
+        if (cart.length === 0) {
+            alert(t('pos.alertEmptyOrder') || "Please add items to order");
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            const token = localStorage.getItem('token');
+            const itemsWithTotal = cart.map(i => ({
+                ...i,
+                total_price: i.unit_price * i.quantity
+            }));
+
+            // Calculate Total explicitly
+            const totalAmount = itemsWithTotal.reduce((sum, i) => sum + i.total_price, 0);
+
+            // 1. Create Sale (Quick Sale type)
+            const res = await fetch(`${API_URL}/pos/sales`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    items: itemsWithTotal,
+                    orderType: 'quick_sale',
+                    customerName: 'Quick Sale',
+                    paymentMethod: 'cash'
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to create sale');
+
+            // 2. Immediate Payment with Exact Amount
+            const payRes = await fetch(`${API_URL}/pos/sales/${data.saleId}/pay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    paymentMethod: 'cash',
+                    cashReceived: totalAmount // Exact amount always
+                })
+            });
+
+            if (!payRes.ok) throw new Error('Payment failed');
+
+            // 3. Cleanup & Reset
+            // No alert needed per request for speed, just reset.
+            updateCurrentCart([]);
+            setSelectedSaleId(null);
+            setLastOrderSaleId(null);
+            setExistingItems([]);
+            setExistingTotal(0);
+
+        } catch (error) {
+            console.error('Error in Quick Save', error);
+            alert(error.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     // 2. Check Bill (Fetch Total logic handled in UI, just open modal)
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [cashReceived, setCashReceived] = useState('');
@@ -536,6 +626,15 @@ const POSEntry = () => {
             alert("Payment Error");
         } finally {
             setIsProcessing(false);
+        }
+
+        // Clean up specific for Quick Sale
+        if (orderType === 'quick_sale') {
+            setSelectedSaleId(null);
+            setLastOrderSaleId(null);
+            setExistingItems([]);
+            setExistingTotal(0);
+            updateCurrentCart([]); // Ensure empty
         }
     };
 
@@ -611,32 +710,57 @@ const POSEntry = () => {
                 <div style={{ marginBottom: '1rem', backgroundColor: 'white', padding: '1rem', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#374151' }}>Order Type:</span>
-                        <div style={{ display: 'flex', backgroundColor: '#f3f4f6', borderRadius: '12px', padding: '4px' }}>
-                            <button
-                                onClick={() => { setOrderType('dine_in'); }}
-                                style={{
-                                    padding: '0.5rem 1.5rem', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold',
-                                    backgroundColor: orderType === 'dine_in' ? 'white' : 'transparent',
-                                    color: orderType === 'dine_in' ? '#2563eb' : '#6b7280',
-                                    boxShadow: orderType === 'dine_in' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                🍽️ Dine-in
-                            </button>
-                            <button
-                                onClick={() => { setOrderType('take_away'); setSelectedTable(null); }}
-                                style={{
-                                    padding: '0.5rem 1.5rem', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold',
-                                    backgroundColor: orderType === 'take_away' ? 'white' : 'transparent',
-                                    color: orderType === 'take_away' ? '#d97706' : '#6b7280',
-                                    boxShadow: orderType === 'take_away' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                🥡 Take Away
-                            </button>
-                        </div>
+                        {isQuickSaleMode ? (
+                            <div style={{ padding: '0.5rem 1.5rem', borderRadius: '10px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 'bold', border: '1px solid #bae6fd', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                ⚡ Quick Sale
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', backgroundColor: '#f3f4f6', borderRadius: '12px', padding: '4px' }}>
+                                <button
+                                    onClick={() => { setOrderType('dine_in'); }}
+                                    style={{
+                                        padding: '0.5rem 1.5rem', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold',
+                                        backgroundColor: orderType === 'dine_in' ? 'white' : 'transparent',
+                                        color: orderType === 'dine_in' ? '#2563eb' : '#6b7280',
+                                        boxShadow: orderType === 'dine_in' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    🍽️ Dine-in
+                                </button>
+                                <button
+                                    onClick={() => { setOrderType('take_away'); setSelectedTable(null); }}
+                                    style={{
+                                        padding: '0.5rem 1.5rem', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold',
+                                        backgroundColor: orderType === 'take_away' ? 'white' : 'transparent',
+                                        color: orderType === 'take_away' ? '#d97706' : '#6b7280',
+                                        boxShadow: orderType === 'take_away' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    🥡 Take Away
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setOrderType('quick_sale');
+                                        setSelectedTable(null);
+                                        setSelectedSaleId(null);
+                                        setExistingItems([]);
+                                        setExistingTotal(0);
+                                    }}
+                                    style={{
+                                        padding: '0.5rem 1.5rem', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold',
+                                        backgroundColor: orderType === 'quick_sale' ? 'white' : 'transparent',
+                                        color: orderType === 'quick_sale' ? '#0369a1' : '#6b7280',
+                                        boxShadow: orderType === 'quick_sale' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                        transition: 'all 0.2s',
+                                        display: 'flex', alignItems: 'center', gap: '0.25rem'
+                                    }}
+                                >
+                                    ⚡ Quick Sale
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -847,6 +971,11 @@ const POSEntry = () => {
                             Take Away
                         </span>
                     )}
+                    {orderType === 'quick_sale' && (
+                        <span style={{ fontWeight: 'bold', color: '#2563eb' }}>
+                            🛒 Sale-Record
+                        </span>
+                    )}
                 </div>
 
                 <div className="pos-order-content">
@@ -949,8 +1078,17 @@ const POSEntry = () => {
                         <span>{(existingTotal + cart.reduce((s, i) => s + (i.unit_price * i.quantity), 0)).toLocaleString()} ฿</span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        {currentTableStatus === 'paid' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: orderType === 'quick_sale' ? '1fr' : '1fr 1fr', gap: '1rem' }}>
+                        {orderType === 'quick_sale' ? (
+                            <button
+                                className="btn btn-primary btn-lg btn-block"
+                                onClick={handleQuickSave}
+                                disabled={cart.length === 0 || isProcessing}
+                                style={{ height: '64px', fontSize: '1.5rem', borderRadius: '16px', fontWeight: 'bold', backgroundColor: '#2563eb', color: 'white' }}
+                            >
+                                💾 บันทึก
+                            </button>
+                        ) : currentTableStatus === 'paid' ? (
                             <>
                                 <button
                                     className="btn btn-danger btn-lg btn-block"

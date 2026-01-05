@@ -54,6 +54,10 @@ const Sidebar = ({ onLinkClick }) => {
                     </NavLink>
                     <NavLink to="/pos" end className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">🧾</span>
+                        <span>POS</span>
+                    </NavLink>
+                    <NavLink to="/sales-record" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
+                        <span className="sidebar-link-icon">🛒</span>
                         <span>บันทึกการขาย</span>
                     </NavLink>
                     <NavLink to="/pos/history" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>

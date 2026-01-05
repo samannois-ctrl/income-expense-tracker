@@ -283,6 +283,17 @@ const Entry = () => {
                     {incomeSuccess && <div className="success-message">{incomeSuccess}</div>}
                     <form onSubmit={handleIncomeSubmit}>
                         <div className="form-group">
+                            <CategorySelect
+                                value={incomeData.category}
+                                onChange={(value) => setIncomeData({ ...incomeData, category: value })}
+                                categories={incomeCategories}
+                                type="income"
+                                onCategoryAdded={fetchCategories}
+                                placeholder="Search or add category"
+                                required
+                            />
+                        </div>
+                        <div className="form-group">
                             <input
                                 type="tel"
                                 pattern="[0-9.,]*"
@@ -324,17 +335,6 @@ const Entry = () => {
                             </div>
                         </div>
                         <div className="form-group">
-                            <CategorySelect
-                                value={incomeData.category}
-                                onChange={(value) => setIncomeData({ ...incomeData, category: value })}
-                                categories={incomeCategories}
-                                type="income"
-                                onCategoryAdded={fetchCategories}
-                                placeholder="Search or add category"
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
                             <input
                                 type="text"
                                 className="form-input"
@@ -357,6 +357,17 @@ const Entry = () => {
                     </div>
                     {expenseSuccess && <div className="success-message">{expenseSuccess}</div>}
                     <form onSubmit={handleExpenseSubmit}>
+                        <div className="form-group">
+                            <CategorySelect
+                                value={expenseData.category}
+                                onChange={(value) => setExpenseData({ ...expenseData, category: value })}
+                                categories={expenseCategories}
+                                type="expense"
+                                onCategoryAdded={fetchCategories}
+                                placeholder="Search or add category"
+                                required
+                            />
+                        </div>
                         <div className="form-group">
                             <input
                                 type="tel"
@@ -397,17 +408,6 @@ const Entry = () => {
                                     +
                                 </button>
                             </div>
-                        </div>
-                        <div className="form-group">
-                            <CategorySelect
-                                value={expenseData.category}
-                                onChange={(value) => setExpenseData({ ...expenseData, category: value })}
-                                categories={expenseCategories}
-                                type="expense"
-                                onCategoryAdded={fetchCategories}
-                                placeholder="Search or add category"
-                                required
-                            />
                         </div>
                         <div className="form-group">
                             <input

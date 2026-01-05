@@ -283,6 +283,121 @@ router.get('/sales', auth, async (req, res) => {
     }
 });
 
+// Cancel Sale (Entire Order)
+router.post('/sales/:id/cancel', auth, async (req, res) => {
+    const saleId = req.params.id;
+    try {
+        // Just mark as cancelled
+        await db.prepare('UPDATE sales SET status = "cancelled" WHERE id = ?').run(saleId);
+
+        // Also cancel validation: If it was linked to a table, we should probably clear the table?
+        // But usually history cancellation is for past orders. 
+        // If it's an ACTIVE order being cancelled, we should free the table.
+        // Let's check status first.
+        const sale = await db.prepare('SELECT status, table_id FROM sales WHERE id = ?').get(saleId);
+
+        if (sale && sale.table_id) {
+            // Free the table if it's currently occupied by this sale
+            await db.prepare('UPDATE tables SET current_sale_id = NULL, status = "available" WHERE id = ? AND current_sale_id = ?').run(sale.table_id, saleId);
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Cancel Specific Sale Item (with Auto-Cancel Order)
+router.post('/sales/:id/items/:itemId/cancel', auth, async (req, res) => {
+    const { id: saleId, itemId } = req.params;
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Mark Item as Cancelled
+        await connection.query('UPDATE sale_items SET is_cancelled = 1 WHERE id = ? AND saleId = ?', [itemId, saleId]);
+
+        // 2. Check remaining active items
+        const [activeItems] = await connection.query('SELECT COUNT(*) as count FROM sale_items WHERE saleId = ? AND is_cancelled = 0', [saleId]);
+        const activeCount = activeItems[0].count;
+
+        // 3. Recalculate Sale Total (Sum of NON-Cancelled items)
+        const [rows] = await connection.query('SELECT SUM(total_price) as newTotal FROM sale_items WHERE saleId = ? AND is_cancelled = 0', [saleId]);
+        const newTotal = rows[0].newTotal || 0;
+
+        // 4. Update Sale Total
+        await connection.query('UPDATE sales SET totalAmount = ? WHERE id = ?', [newTotal, saleId]);
+
+        // 5. AUTO-CANCEL SALE if no active items left
+        let saleStatus = 'active';
+        if (activeCount === 0) {
+            await connection.query('UPDATE sales SET status = "cancelled" WHERE id = ?', [saleId]);
+            saleStatus = 'cancelled';
+
+            // Also free table if applicable
+            const [sale] = await connection.query('SELECT table_id FROM sales WHERE id = ?', [saleId]);
+            if (sale && sale[0] && sale[0].table_id) {
+                await connection.query('UPDATE tables SET current_sale_id = NULL, status = "available" WHERE id = ? AND current_sale_id = ?', [sale[0].table_id, saleId]);
+            }
+        }
+
+        await connection.commit();
+        res.json({ success: true, newTotal, saleStatus });
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// Uncancel Sale (Restore)
+router.post('/sales/:id/uncancel', auth, async (req, res) => {
+    const saleId = req.params.id;
+    try {
+        // Restore status to 'completed'
+        await db.prepare('UPDATE sales SET status = "completed" WHERE id = ?').run(saleId);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Uncancel Specific Item
+router.post('/sales/:id/items/:itemId/uncancel', auth, async (req, res) => {
+    const { id: saleId, itemId } = req.params;
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Mark Item as Active (is_cancelled = 0)
+        await connection.query('UPDATE sale_items SET is_cancelled = 0 WHERE id = ? AND saleId = ?', [itemId, saleId]);
+
+        // 2. Recalculate Sale Total
+        const [rows] = await connection.query('SELECT SUM(total_price) as newTotal FROM sale_items WHERE saleId = ? AND is_cancelled = 0', [saleId]);
+        const newTotal = rows[0].newTotal || 0;
+
+        // 3. Update Sale Total
+        await connection.query('UPDATE sales SET totalAmount = ? WHERE id = ?', [newTotal, saleId]);
+
+        // 4. Auto-Restore Sale if it was cancelled
+        const [sale] = await connection.query('SELECT status FROM sales WHERE id = ?', [saleId]);
+        if (sale && sale[0] && sale[0].status === 'cancelled') {
+            await connection.query('UPDATE sales SET status = "completed" WHERE id = ?', [saleId]);
+        }
+
+        await connection.commit();
+        res.json({ success: true, newTotal });
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+});
+
 // Get Sale Detail
 router.get('/sales/:id', auth, async (req, res) => {
     try {

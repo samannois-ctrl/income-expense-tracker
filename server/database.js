@@ -228,6 +228,7 @@ async function initDatabase() {
         total_price DECIMAL(10, 2) NOT NULL,
         options_json TEXT, 
         notes TEXT,
+        is_cancelled TINYINT(1) DEFAULT 0,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (saleId) REFERENCES sales(id) ON DELETE CASCADE,
         FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE SET NULL,
@@ -235,6 +236,18 @@ async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✅ Sale items table ready');
+
+    // MIGRATION: Check if is_cancelled exists, if not add it
+    try {
+      const [columns] = await connection.query("SHOW COLUMNS FROM sale_items LIKE 'is_cancelled'");
+      if (columns.length === 0) {
+        console.log('🔄 Migrating sale_items: Adding is_cancelled column...');
+        await connection.query("ALTER TABLE sale_items ADD COLUMN is_cancelled TINYINT(1) DEFAULT 0");
+        console.log('✅ Migration successful');
+      }
+    } catch (err) {
+      console.error('⚠️ Migration check failed:', err.message);
+    }
 
     console.log('\n✨ All tables initialized successfully!\n');
 

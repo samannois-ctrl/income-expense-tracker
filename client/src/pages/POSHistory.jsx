@@ -49,6 +49,94 @@ const POSHistory = () => {
         }
     };
 
+    const handleCancelSale = async (saleId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/pos/sales/${saleId}/cancel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                await fetchSales();
+                if (expandedSale === saleId) {
+                    const resDetails = await fetch(`${API_URL}/pos/sales/${saleId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const json = await resDetails.json();
+                    setSaleDetails(json.items || []);
+                }
+            }
+        } catch (error) {
+            console.error('Error cancelling sale:', error);
+            alert('Failed to cancel sale');
+        }
+    };
+
+    const handleUncancelSale = async (saleId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/pos/sales/${saleId}/uncancel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                await fetchSales();
+                if (expandedSale === saleId) {
+                    const resDetails = await fetch(`${API_URL}/pos/sales/${saleId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const json = await resDetails.json();
+                    setSaleDetails(json.items || []);
+                }
+            }
+        } catch (error) {
+            console.error('Error restoring sale:', error);
+            alert('Failed to restore sale');
+        }
+    };
+
+    const handleCancelItem = async (saleId, itemId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/pos/sales/${saleId}/items/${itemId}/cancel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const resDetails = await fetch(`${API_URL}/pos/sales/${saleId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const json = await resDetails.json();
+                setSaleDetails(json.items || []);
+                await fetchSales();
+            }
+        } catch (error) {
+            console.error('Error cancelling item:', error);
+            alert('Failed to cancel item');
+        }
+    };
+
+    const handleUncancelItem = async (saleId, itemId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/pos/sales/${saleId}/items/${itemId}/uncancel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const resDetails = await fetch(`${API_URL}/pos/sales/${saleId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const json = await resDetails.json();
+                setSaleDetails(json.items || []);
+                await fetchSales();
+            }
+        } catch (error) {
+            console.error('Error restoring item:', error);
+            alert('Failed to restore item');
+        }
+    };
+
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('th-TH', {
             style: 'currency',
@@ -106,9 +194,10 @@ const POSHistory = () => {
                         ) : (
                             sales.map(sale => (
                                 <Fragment key={sale.id}>
-                                    <tr className={expandedSale === sale.id ? 'bg-active' : ''}>
+                                    <tr className={`${expandedSale === sale.id ? 'bg-active' : ''} ${sale.status === 'cancelled' ? 'row-cancelled' : ''}`}>
                                         <td className="text-muted">
                                             {formatDate(sale.saleDate)}
+                                            {sale.status === 'cancelled' && <span className="status-badge status-cancelled ml-2">CANCELLED</span>}
                                         </td>
                                         <td>
                                             <span className="font-mono text-sm">{sale.paper_order_ref || '-'}</span>
@@ -117,7 +206,11 @@ const POSHistory = () => {
                                             <span className="badge badge-secondary">{sale.itemsCount}</span>
                                         </td>
                                         <td className="text-right font-bold">
-                                            {formatCurrency(sale.totalAmount)}
+                                            {sale.status === 'cancelled' ? (
+                                                <span style={{ textDecoration: 'line-through', color: '#ef4444' }}>{formatCurrency(sale.totalAmount)}</span>
+                                            ) : (
+                                                formatCurrency(sale.totalAmount)
+                                            )}
                                         </td>
                                         <td className="text-center">
                                             <div className="action-btn-group">
@@ -137,16 +230,22 @@ const POSHistory = () => {
                                                     <div className="order-receipt-header">
                                                         <div className="receipt-title">{t('posHistory.orderReceipt')}</div>
                                                         <div className="receipt-id">#{sale.paper_order_ref || sale.id}</div>
-                                                        <div className="status-badge status-completed mt-sm">{t('posHistory.completed')}</div>
+                                                        <div className={`status-badge ${sale.status === 'cancelled' ? 'status-cancelled' : 'status-completed'} mt-sm`}>
+                                                            {sale.status === 'cancelled' ? 'CANCELLED' : t('posHistory.completed')}
+                                                        </div>
                                                     </div>
 
                                                     <div className="order-items-list">
                                                         {saleDetails.map((item, index) => {
                                                             const options = item.options_json ? JSON.parse(item.options_json) : [];
+                                                            const isItemCancelled = item.is_cancelled === 1;
                                                             return (
-                                                                <div key={item.id || index} className="order-item">
+                                                                <div key={item.id || index} className={`order-item ${isItemCancelled ? 'item-cancelled' : ''}`}>
                                                                     <div className="item-info">
-                                                                        <div className="item-name">{item.itemName}</div>
+                                                                        <div className="item-name">
+                                                                            {item.itemName}
+                                                                            {isItemCancelled && <span className="text-red-500 text-xs ml-2">(Cancelled)</span>}
+                                                                        </div>
                                                                         {options.length > 0 && (
                                                                             <div className="item-options">
                                                                                 {options.map(o => o.name).join(', ')}
@@ -154,8 +253,30 @@ const POSHistory = () => {
                                                                         )}
                                                                         <span className="item-qty">x{item.quantity}</span>
                                                                     </div>
-                                                                    <div className="item-price">
-                                                                        {formatCurrency(item.total_price)}
+                                                                    <div className="item-price-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <div className="item-price" style={{ textDecoration: isItemCancelled ? 'line-through' : 'none', color: isItemCancelled ? '#ef4444' : 'inherit' }}>
+                                                                            {formatCurrency(item.total_price)}
+                                                                        </div>
+                                                                        {sale.status !== 'cancelled' && !isItemCancelled && (
+                                                                            <button
+                                                                                className="btn-icon-danger btn-sm"
+                                                                                onClick={() => handleCancelItem(sale.id, item.id)}
+                                                                                title="Cancel Item"
+                                                                                style={{ padding: '2px 6px', fontSize: '12px' }}
+                                                                            >
+                                                                                ❌
+                                                                            </button>
+                                                                        )}
+                                                                        {isItemCancelled && (
+                                                                            <button
+                                                                                className="btn-icon-secondary btn-sm"
+                                                                                onClick={() => handleUncancelItem(sale.id, item.id)}
+                                                                                title="Restore Item"
+                                                                                style={{ padding: '2px 6px', fontSize: '12px' }}
+                                                                            >
+                                                                                ↩️
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             );
@@ -169,8 +290,33 @@ const POSHistory = () => {
                                                         </div>
                                                         <div className="summary-row total">
                                                             <span>{t('posHistory.total')}</span>
-                                                            <span>{formatCurrency(sale.totalAmount)}</span>
+                                                            <span style={{ textDecoration: sale.status === 'cancelled' ? 'line-through' : 'none', color: sale.status === 'cancelled' ? '#ef4444' : 'inherit' }}>
+                                                                {formatCurrency(sale.totalAmount)}
+                                                            </span>
                                                         </div>
+                                                        {sale.status !== 'cancelled' ? (
+                                                            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                                                                <button
+                                                                    className="btn btn-danger btn-sm"
+                                                                    onClick={() => {
+                                                                        if (confirm('Are you sure you want to cancel this entire order?')) {
+                                                                            handleCancelSale(sale.id);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    🚫 Cancel Entire Order
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                                                                <button
+                                                                    className="btn btn-secondary btn-sm"
+                                                                    onClick={() => handleUncancelSale(sale.id)}
+                                                                >
+                                                                    ↩️ Restore Order
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -184,7 +330,10 @@ const POSHistory = () => {
                         <tr className="bg-gray-50 border-t-2 border-gray-200">
                             <td colSpan="3" className="p-4 text-right font-bold text-gray-700">{t('posHistory.totalSales')}</td>
                             <td className="p-4 text-right font-bold text-xl text-green-600">
-                                {formatCurrency(sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0))}
+                                {formatCurrency(sales.reduce((sum, sale) => {
+                                    if (sale.status === 'cancelled') return sum;
+                                    return sum + Number(sale.totalAmount);
+                                }, 0))}
                             </td>
                             <td></td>
                         </tr>

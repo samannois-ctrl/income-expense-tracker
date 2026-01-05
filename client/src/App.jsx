@@ -92,6 +92,7 @@ function App() {
               <Route path="categories" element={<Categories />} />
               <Route path="menu" element={<MenuManagement />} />
               <Route path="pos" element={<POSEntry />} />
+              <Route path="sales-record" element={<POSEntry />} />
               <Route path="pos/history" element={<POSHistory />} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<Settings />} />
