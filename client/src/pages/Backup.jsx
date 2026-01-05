@@ -54,7 +54,7 @@ const Backup = () => {
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `backup-${new Date().toISOString().replace(/[:.]/g, '-')}.sqlite`);
+            link.setAttribute('download', `backup-${new Date().toISOString().replace(/[:.]/g, '-')}.sql`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -235,7 +235,7 @@ const Backup = () => {
                             </p>
                             <input
                                 type="file"
-                                accept=".sqlite"
+                                accept=".sql"
                                 onChange={handleRestore}
                                 style={{ display: 'none' }}
                                 id="restore-input"
@@ -274,7 +274,6 @@ const Backup = () => {
                                 className="form-input"
                                 value={schedule.schedule_time}
                                 onChange={(e) => setSchedule({ ...schedule, schedule_time: e.target.value })}
-                                disabled={!schedule.enabled}
                             />
                         </div>
 
@@ -287,7 +286,6 @@ const Backup = () => {
                                 onChange={(e) => setSchedule({ ...schedule, retention_days: parseInt(e.target.value) })}
                                 min="1"
                                 max="365"
-                                disabled={!schedule.enabled}
                             />
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
                                 Backups older than this will be automatically deleted

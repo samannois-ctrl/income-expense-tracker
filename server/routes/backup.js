@@ -24,24 +24,72 @@ if (!fs.existsSync(backupDir)) {
     fs.mkdirSync(backupDir, { recursive: true });
 }
 
-// Create backup using mysqldump
+// Helper to escape values for SQL
+function escapeSqlValue(val) {
+    if (val === null) return 'NULL';
+    if (typeof val === 'number') return val;
+    if (typeof val === 'boolean') return val ? 1 : 0;
+    if (val instanceof Date) return "'" + val.toISOString().slice(0, 19).replace('T', ' ') + "'";
+    // Basic escaping
+    return "'" + String(val).replace(/\\/g, '\\\\').replace(/'/g, "''").replace(/\n/g, '\\n').replace(/\r/g, '\\r') + "'";
+}
+
+// Create backup using native Node.js implementation
 router.post('/create', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `backup-${timestamp}.sql`;
         const filePath = path.join(backupDir, filename);
 
-        // Build mysqldump command
-        const dbHost = process.env.DB_HOST || 'localhost';
-        const dbPort = process.env.DB_PORT || 3306;
-        const dbUser = process.env.DB_ROOT_USER || 'root';
-        const dbPassword = process.env.DB_ROOT_PASSWORD || '';
-        const dbName = process.env.DB_NAME || 'income_expense_tracker';
+        const writeStream = fs.createWriteStream(filePath);
 
-        const command = `mysqldump -h ${dbHost} -P ${dbPort} -u ${dbUser} ${dbPassword ? `-p${dbPassword}` : ''} ${dbName} > "${filePath}"`;
+        // Write Header
+        writeStream.write(`-- Backup generated at ${new Date().toISOString()}\n`);
+        writeStream.write(`-- Server: MySQL/MariaDB\n\n`);
+        writeStream.write(`SET FOREIGN_KEY_CHECKS=0;\n`);
+        writeStream.write(`SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";\n`);
+        writeStream.write(`START TRANSACTION;\n\n`);
 
-        // Execute mysqldump
-        await execPromise(command);
+        // Get all tables
+        const tables = await db.prepare('SHOW TABLES').all();
+
+        for (const row of tables) {
+            const tableName = Object.values(row)[0];
+
+            // Skip backup_settings table or others if needed (optional)
+
+            // Get Table Structure
+            const createTableResult = await db.prepare(`SHOW CREATE TABLE \`${tableName}\``).get();
+            writeStream.write(`-- Table structure for table \`${tableName}\`\n`);
+            writeStream.write(`DROP TABLE IF EXISTS \`${tableName}\`;\n`);
+            writeStream.write(`${createTableResult['Create Table']};\n\n`);
+
+            // Get Table Data
+            const tableData = await db.prepare(`SELECT * FROM \`${tableName}\``).all();
+
+            if (tableData.length > 0) {
+                writeStream.write(`-- Dumping data for table \`${tableName}\`\n`);
+                writeStream.write(`INSERT INTO \`${tableName}\` VALUES\n`);
+
+                const values = tableData.map((row, index) => {
+                    const rowValues = Object.values(row).map(escapeSqlValue);
+                    return `(${rowValues.join(', ')})`;
+                });
+
+                writeStream.write(values.join(',\n'));
+                writeStream.write(';\n\n');
+            }
+        }
+
+        writeStream.write(`SET FOREIGN_KEY_CHECKS=1;\n`);
+        writeStream.write(`COMMIT;\n`);
+        writeStream.end();
+
+        // Wait for stream to finish
+        await new Promise((resolve, reject) => {
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
+        });
 
         const stats = fs.statSync(filePath);
 
@@ -96,7 +144,9 @@ router.get('/download/:filename', authenticateToken, requireAdmin, (req, res) =>
         res.download(filePath, filename, (err) => {
             if (err) {
                 console.error('Download error:', err);
-                res.status(500).json({ error: 'Failed to download backup' });
+                if (!res.headersSent) {
+                    res.status(500).json({ error: `Failed to download backup: ${err.message}` });
+                }
             }
         });
     } catch (error) {
@@ -158,6 +208,65 @@ router.post('/schedule', authenticateToken, requireAdmin, async (req, res) => {
         res.json({ message: 'Backup schedule updated successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Download current database directly (Live Backup)
+router.get('/download', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `backup-${timestamp}.sql`;
+
+        // Set headers for download
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/sql');
+
+        // Write Header
+        res.write(`-- Backup generated at ${new Date().toISOString()}\n`);
+        res.write(`-- Server: MySQL/MariaDB\n\n`);
+        res.write(`SET FOREIGN_KEY_CHECKS=0;\n`);
+        res.write(`SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";\n`);
+        res.write(`START TRANSACTION;\n\n`);
+
+        // Get all tables
+        const tables = await db.prepare('SHOW TABLES').all();
+
+        for (const row of tables) {
+            const tableName = Object.values(row)[0];
+
+            // Get Table Structure
+            const createTableResult = await db.prepare(`SHOW CREATE TABLE \`${tableName}\``).get();
+            res.write(`-- Table structure for table \`${tableName}\`\n`);
+            res.write(`DROP TABLE IF EXISTS \`${tableName}\`;\n`);
+            res.write(`${createTableResult['Create Table']};\n\n`);
+
+            // Get Table Data
+            const tableData = await db.prepare(`SELECT * FROM \`${tableName}\``).all();
+
+            if (tableData.length > 0) {
+                res.write(`-- Dumping data for table \`${tableName}\`\n`);
+                res.write(`INSERT INTO \`${tableName}\` VALUES\n`);
+
+                const values = tableData.map((row) => {
+                    const rowValues = Object.values(row).map(escapeSqlValue);
+                    return `(${rowValues.join(', ')})`;
+                });
+
+                res.write(values.join(',\n'));
+                res.write(';\n\n');
+            }
+        }
+
+        res.write(`SET FOREIGN_KEY_CHECKS=1;\n`);
+        res.write(`COMMIT;\n`);
+        res.end();
+    } catch (error) {
+        console.error('Backup download error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        } else {
+            res.end();
+        }
     }
 });
 
