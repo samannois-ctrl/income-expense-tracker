@@ -59,6 +59,7 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS transactions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         userId INT NOT NULL,
+        sale_id INT DEFAULT NULL,
         type VARCHAR(50) NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
         quantity INT DEFAULT 1,
@@ -68,6 +69,7 @@ async function initDatabase() {
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_userId (userId),
+        INDEX idx_sale_id (sale_id),
         INDEX idx_type (type),
         INDEX idx_date (date),
         INDEX idx_category (category)
@@ -247,6 +249,39 @@ async function initDatabase() {
       }
     } catch (err) {
       console.error('⚠️ Migration check failed:', err.message);
+    }
+
+    // MIGRATION: Check if sale_id exists in transactions
+    try {
+      const [columns] = await connection.query("SHOW COLUMNS FROM transactions LIKE 'sale_id'");
+      if (columns.length === 0) {
+        console.log('🔄 Migrating transactions: Adding sale_id column...');
+        await connection.query("ALTER TABLE transactions ADD COLUMN sale_id INT DEFAULT NULL");
+        await connection.query("ALTER TABLE transactions ADD INDEX idx_sale_id (sale_id)");
+        console.log('✅ Migration successful: Added sale_id to transactions');
+      }
+
+      // Data Cleanup / Backfill
+      // 1. Backfill sale_id for existing POS transactions
+      console.log('🔄 Running data cleanup: Backfilling sale_id...');
+      await connection.query(`
+        UPDATE transactions t 
+        JOIN sales s ON t.description LIKE CONCAT('%', s.paper_order_ref, '%')
+        SET t.sale_id = s.id 
+        WHERE t.sale_id IS NULL AND t.category = 'POS Sales'
+      `);
+
+      // 2. Remove transactions for sales that are cancelled
+      console.log('🔄 Running data cleanup: Removing cancelled sales from transactions...');
+      const [delResult] = await connection.query(`
+        DELETE t FROM transactions t
+        JOIN sales s ON t.sale_id = s.id
+        WHERE s.status = 'cancelled'
+      `);
+      console.log(`✅ Data cleanup complete: Removed ${delResult.affectedRows} orphaned transactions.`);
+
+    } catch (err) {
+      console.error('⚠️ Migration transactions check failed:', err.message);
     }
 
     console.log('\n✨ All tables initialized successfully!\n');

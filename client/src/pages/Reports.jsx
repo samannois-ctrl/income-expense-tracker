@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config/api.js';
 import Chart from 'chart.js/auto';
+import Select from 'react-select';
 import ThaiDatePicker from '../components/ThaiDatePicker';
 import { useSettings } from '../context/SettingsContext';
 
@@ -190,8 +191,55 @@ const Reports = () => {
         }
     };
 
-    const handleCategoryChange = (e) => {
-        setSelectedCategory(e.target.value);
+    // Prepare React Select Options
+    const categoryOptions = [
+        {
+            label: t('reports.allCategories'),
+            options: [
+                { value: 'all', label: t('reports.allCategories') }
+            ]
+        },
+        {
+            label: t('categories.incomeCategories'),
+            options: [
+                { value: 'POS Sales', label: 'POS' },
+                ...categories
+                    .filter(c => c.type === 'income' && c.name !== 'POS Sales')
+                    .map(c => ({ value: c.name, label: c.name }))
+            ]
+        },
+        {
+            label: t('categories.expenseCategories'),
+            options: categories
+                .filter(c => c.type === 'expense')
+                .map(c => ({ value: c.name, label: c.name }))
+        }
+    ];
+
+    const customSelectStyles = {
+        control: (base) => ({
+            ...base,
+            minHeight: '42px',
+            borderRadius: '8px',
+            borderColor: 'var(--border-color)',
+            boxShadow: 'none',
+            '&:hover': {
+                borderColor: 'var(--color-accent-blue)'
+            }
+        }),
+        menu: (base) => ({
+            ...base,
+            zIndex: 100,
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: 'var(--shadow-lg)'
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isSelected ? 'var(--color-accent-blue)' : state.isFocused ? 'var(--color-bg-hover)' : 'white',
+            color: state.isSelected ? 'white' : 'var(--color-text-primary)',
+            cursor: 'pointer'
+        })
     };
 
     return (
@@ -204,27 +252,18 @@ const Reports = () => {
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {viewMode === 'daily' && (
                         <>
-                            <select
-                                className="form-input"
-                                value={selectedCategory}
-                                onChange={handleCategoryChange}
-                                style={{ width: 'auto' }}
-                            >
-                                <option value="all">{t('reports.allCategories')}</option>
-                                <optgroup label={t('categories.incomeCategories')}>
-                                    <option value="POS Sales">POS</option>
-                                    {categories.filter(c => c.type === 'income' && c.name !== 'POS Sales').map(cat => (
-                                        <option key={cat.id} value={cat.name}>{cat.name}</option>
-                                    ))}
-                                </optgroup>
-                                <optgroup label={t('categories.expenseCategories')}>
-                                    {categories.filter(c => c.type === 'expense').map(cat => (
-                                        <option key={cat.id} value={cat.name}>{cat.name}</option>
-                                    ))}
-                                </optgroup>
-                            </select>
+                            <div style={{ width: '250px' }}>
+                                <Select
+                                    options={categoryOptions}
+                                    value={categoryOptions.flatMap(g => g.options).find(opt => opt.value === selectedCategory) || categoryOptions[0].options[0]}
+                                    onChange={(option) => setSelectedCategory(option.value)}
+                                    placeholder={t('common.select')}
+                                    styles={customSelectStyles}
+                                    isSearchable
+                                />
+                            </div>
 
-                            <div className="date-filter" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '25px' }}>
+                            <div className="date-filter" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '0' }}>
                                 <ThaiDatePicker
                                     selected={dateRange.startDate}
                                     onChange={(date) => setDateRange(prev => ({ ...prev, startDate: date }))}
@@ -281,7 +320,7 @@ const Reports = () => {
                         : t('reports.showingDaily', { category: selectedCategory === 'all' ? t('reports.allCategories') : selectedCategory })}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

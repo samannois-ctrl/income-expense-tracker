@@ -164,10 +164,11 @@ router.post('/sales/:id/pay', auth, async (req, res) => {
         const itemsCount = items[0].count;
 
         await connection.query(
-            `INSERT INTO transactions (userId, type, amount, quantity, category, description, date) 
-             VALUES (?, ?, ?, ?, ?, ?, CURDATE())`,
+            `INSERT INTO transactions (userId, sale_id, type, amount, quantity, category, description, date) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE())`,
             [
                 userId,
+                saleId,
                 'income',
                 saleData.totalAmount, // Use final total
                 itemsCount,
@@ -290,6 +291,18 @@ router.post('/sales/:id/cancel', auth, async (req, res) => {
         // Just mark as cancelled
         await db.prepare('UPDATE sales SET status = "cancelled" WHERE id = ?').run(saleId);
 
+        // SYNC TRANSACTIONS: Remove from report
+        // Try deleting by sale_id first
+        let result = await db.prepare('DELETE FROM transactions WHERE sale_id = ?').run(saleId);
+
+        // Fallback for legacy: delete by description if sale_id wasn't set
+        if (result.changes === 0) {
+            const sale = await db.prepare('SELECT paper_order_ref FROM sales WHERE id = ?').get(saleId);
+            if (sale && sale.paper_order_ref) {
+                await db.prepare('DELETE FROM transactions WHERE description LIKE ?').run(`POS Sale #${sale.paper_order_ref}%`);
+            }
+        }
+
         // Also cancel validation: If it was linked to a table, we should probably clear the table?
         // But usually history cancellation is for past orders. 
         // If it's an ACTIVE order being cancelled, we should free the table.
@@ -340,6 +353,23 @@ router.post('/sales/:id/items/:itemId/cancel', auth, async (req, res) => {
             if (sale && sale[0] && sale[0].table_id) {
                 await connection.query('UPDATE tables SET current_sale_id = NULL, status = "available" WHERE id = ? AND current_sale_id = ?', [sale[0].table_id, saleId]);
             }
+
+            // SYNC TRANSACTION: Delete if fully cancelled
+            await connection.query('DELETE FROM transactions WHERE sale_id = ?', [saleId]);
+            // Fallback for legacy
+            const [s] = await connection.query('SELECT paper_order_ref FROM sales WHERE id = ?', [saleId]);
+            if (s && s[0]) {
+                await connection.query('DELETE FROM transactions WHERE description LIKE ? AND sale_id IS NULL', [`POS Sale #${s[0].paper_order_ref}%`]);
+            }
+
+        } else {
+            // SYNC TRANSACTION: Update amount
+            await connection.query('UPDATE transactions SET amount = ? WHERE sale_id = ?', [newTotal, saleId]);
+            // Fallback for legacy
+            const [s] = await connection.query('SELECT paper_order_ref FROM sales WHERE id = ?', [saleId]);
+            if (s && s[0]) {
+                await connection.query('UPDATE transactions SET amount = ? WHERE description LIKE ? AND sale_id IS NULL', [newTotal, `POS Sale #${s[0].paper_order_ref}%`]);
+            }
         }
 
         await connection.commit();
@@ -358,6 +388,32 @@ router.post('/sales/:id/uncancel', auth, async (req, res) => {
     try {
         // Restore status to 'completed'
         await db.prepare('UPDATE sales SET status = "completed" WHERE id = ?').run(saleId);
+
+        // SYNC TRANSACTION: Restore if missing
+        const sale = await db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId);
+        const tx = await db.prepare('SELECT id FROM transactions WHERE sale_id = ?').get(saleId);
+
+
+
+        if (!tx && sale) {
+            const items = await db.prepare('SELECT COUNT(*) as count FROM sale_items WHERE saleId = ? AND is_cancelled=0').get(saleId);
+            const saleDate = sale.saleDate.split(' ')[0]; // Extract YYYY-MM-DD
+
+            await db.prepare(`
+                INSERT INTO transactions (userId, sale_id, type, amount, quantity, category, description, date) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             `).run(
+                sale.userId,
+                sale.id,
+                'income',
+                sale.totalAmount,
+                items.count,
+                'POS Sales',
+                `POS Sale #${sale.paper_order_ref} ${sale.table_id ? '(Table ' + sale.table_id + ')' : ''}`,
+                saleDate
+            );
+        }
+
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -383,9 +439,44 @@ router.post('/sales/:id/items/:itemId/uncancel', auth, async (req, res) => {
         await connection.query('UPDATE sales SET totalAmount = ? WHERE id = ?', [newTotal, saleId]);
 
         // 4. Auto-Restore Sale if it was cancelled
-        const [sale] = await connection.query('SELECT status FROM sales WHERE id = ?', [saleId]);
+        const [sale] = await connection.query('SELECT * FROM sales WHERE id = ?', [saleId]);
         if (sale && sale[0] && sale[0].status === 'cancelled') {
             await connection.query('UPDATE sales SET status = "completed" WHERE id = ?', [saleId]);
+        }
+        const saleData = sale[0];
+
+        // SYNC TRANSACTION
+        const [tx] = await connection.query('SELECT id FROM transactions WHERE sale_id = ?', [saleId]);
+
+        if (tx && tx[0]) {
+            // Exists: Update amount
+            await connection.query('UPDATE transactions SET amount = ? WHERE id = ?', [newTotal, tx[0].id]);
+        } else {
+            // Missing: Create new (Restoring logic)
+            // Check fallback: Description?
+            // If we rely on sale_id, we just create it with sale_id.
+            const [items] = await connection.query('SELECT COUNT(*) as count FROM sale_items WHERE saleId = ? AND is_cancelled = 0', [saleId]);
+
+            // Extract date
+            let saleDate = new Date().toISOString().split('T')[0];
+            if (saleData && saleData.saleDate) {
+                if (typeof saleData.saleDate === 'string') saleDate = saleData.saleDate.split(' ')[0];
+                else saleDate = saleData.saleDate.toISOString().split('T')[0];
+            }
+
+            await connection.query(`
+                INSERT INTO transactions (userId, sale_id, type, amount, quantity, category, description, date) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             `, [
+                saleData.userId,
+                saleData.id,
+                'income',
+                newTotal,
+                items[0].count,
+                'POS Sales',
+                `POS Sale #${saleData.paper_order_ref} ${saleData.table_id ? '(Table ' + saleData.table_id + ')' : ''}`,
+                saleDate
+            ]);
         }
 
         await connection.commit();

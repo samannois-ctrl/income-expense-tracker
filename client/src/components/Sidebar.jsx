@@ -42,31 +42,31 @@ const Sidebar = ({ onLinkClick }) => {
                     </NavLink>
                     <NavLink to="/categories" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">🏷️</span>
-                        <span>หมวดรายรับ/รายจ่าย</span>
+                        <span>{t('sidebar.categories')}</span>
                     </NavLink>
                     <NavLink to="/entry" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">➕</span>
-                        <span>บันทึก รายรับ/รายจ่าย</span>
+                        <span>{t('sidebar.entry')}</span>
                     </NavLink>
                     <NavLink to="/menu" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">🍜</span>
-                        <span>จัดการรายการอาหาร</span>
+                        <span>{t('sidebar.menuManagement')}</span>
                     </NavLink>
                     <NavLink to="/pos" end className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">🧾</span>
-                        <span>POS</span>
+                        <span>{t('sidebar.pos')}</span>
                     </NavLink>
                     <NavLink to="/sales-record" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">🛒</span>
-                        <span>บันทึกการขาย</span>
+                        <span>{t('sidebar.salesRecord')}</span>
                     </NavLink>
                     <NavLink to="/pos/history" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">🕒</span>
-                        <span>ประวัติการขาย</span>
+                        <span>{t('sidebar.posHistory')}</span>
                     </NavLink>
                     <NavLink to="/report" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
                         <span className="sidebar-link-icon">📉</span>
-                        <span>รายงาน</span>
+                        <span>{t('sidebar.reports')}</span>
                     </NavLink>
 
                 </div>
