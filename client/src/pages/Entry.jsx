@@ -458,7 +458,7 @@ const Entry = () => {
                                 checked={typeFilter === 'income'}
                                 onChange={(e) => setTypeFilter(e.target.value)}
                             />
-                            <span>📈 Income</span>
+                            <span>📈 {t('entry.income')}</span>
                         </label>
                         <label className={`type-filter-option expense ${typeFilter === 'expense' ? 'active' : ''}`}>
                             <input
@@ -468,7 +468,7 @@ const Entry = () => {
                                 checked={typeFilter === 'expense'}
                                 onChange={(e) => setTypeFilter(e.target.value)}
                             />
-                            <span>📉 Expense</span>
+                            <span>📉 {t('entry.expense')}</span>
                         </label>
                     </div>
                     <div className="history-list">
@@ -527,15 +527,15 @@ const Entry = () => {
                     {/* Totals Section */}
                     <div className="history-totals">
                         <div className="history-total-row">
-                            <span className="history-total-label">Income:</span>
+                            <span className="history-total-label">{t('entry.income')}:</span>
                             <span className="history-total-value text-success">+{formatNumber(totalIncome)}</span>
                         </div>
                         <div className="history-total-row">
-                            <span className="history-total-label">Expense:</span>
+                            <span className="history-total-label">{t('entry.expense')}:</span>
                             <span className="history-total-value text-danger">-{formatNumber(totalExpense)}</span>
                         </div>
                         <div className="history-total-row balance">
-                            <span className="history-total-label">Balance:</span>
+                            <span className="history-total-label">{t('dashboard.balance')}:</span>
                             <span className={`history-total-value ${balance >= 0 ? 'text-success' : 'text-danger'}`}>
                                 {balance >= 0 ? '+' : ''}{formatNumber(balance)}
                             </span>
@@ -548,11 +548,11 @@ const Entry = () => {
             <Modal
                 isOpen={isEditModalOpen}
                 onClose={handleCancelEdit}
-                title={`Edit ${editingTransaction?.type === 'income' ? 'Income' : 'Expense'}`}
+                title={editingTransaction?.type === 'income' ? t('entry.editIncome') : t('entry.editExpense')}
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div className="form-group">
-                        <label className="form-label">Amount</label>
+                        <label className="form-label">{t('entry.amount')}</label>
                         <input
                             type="text"
                             className="form-input"
@@ -568,7 +568,7 @@ const Entry = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Quantity</label>
+                        <label className="form-label">{t('entry.qty')}</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <button
                                 type="button"
@@ -600,7 +600,7 @@ const Entry = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Category</label>
+                        <label className="form-label">{t('entry.category')}</label>
                         <CategorySelect
                             value={editData.category}
                             onChange={(value) => setEditData({ ...editData, category: value })}
@@ -612,7 +612,7 @@ const Entry = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Date</label>
+                        <label className="form-label">{t('entry.date')}</label>
                         <ThaiDatePicker
                             selected={editData.date}
                             onChange={(date) => setEditData({ ...editData, date })}
@@ -621,7 +621,7 @@ const Entry = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Note (Optional)</label>
+                        <label className="form-label">{t('entry.note')}</label>
                         <input
                             type="text"
                             className="form-input"
@@ -637,14 +637,14 @@ const Entry = () => {
                             onClick={handleSaveEdit}
                             style={{ flex: 1 }}
                         >
-                            ✓ Save Changes
+                            ✓ {t('entry.saveChanges')}
                         </button>
                         <button
                             className="btn btn-secondary btn-block"
                             onClick={handleCancelEdit}
                             style={{ flex: 1 }}
                         >
-                            ✕ Cancel
+                            ✕ {t('common.cancel')}
                         </button>
                     </div>
                 </div>

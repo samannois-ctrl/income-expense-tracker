@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTransactions, deleteTransaction } from '../services/api';
+import { useSettings } from '../context/SettingsContext';
 
 const categoryIcons = {
     salary: '💰',
@@ -20,6 +21,7 @@ const categoryIcons = {
 };
 
 const History = () => {
+    const { t, formatDisplayDate } = useSettings();
     const navigate = useNavigate();
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ const History = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Are you sure you want to delete this transaction?')) return;
+        if (!confirm(t('history.deleteConfirm'))) return;
 
         try {
             await deleteTransaction(id);
@@ -69,19 +71,11 @@ const History = () => {
         }).format(amount);
     };
 
-    const formatDate = (date) => {
-        return new Date(date).toLocaleDateString('th-TH', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    };
-
     return (
         <div>
             <div className="page-header">
-                <h1 className="page-title">History</h1>
-                <p className="page-subtitle">View all your transactions</p>
+                <h1 className="page-title">{t('history.title')}</h1>
+                <p className="page-subtitle">{t('history.subtitle')}</p>
             </div>
 
             <div className="date-filter">
@@ -90,15 +84,15 @@ const History = () => {
                     className="form-input"
                     value={filter.startDate}
                     onChange={(e) => setFilter({ ...filter, startDate: e.target.value })}
-                    placeholder="Start Date"
+                    placeholder={t('history.startDate')}
                 />
-                <span className="text-muted">to</span>
+                <span className="text-muted">{t('history.to')}</span>
                 <input
                     type="date"
                     className="form-input"
                     value={filter.endDate}
                     onChange={(e) => setFilter({ ...filter, endDate: e.target.value })}
-                    placeholder="End Date"
+                    placeholder={t('history.endDate')}
                 />
                 <select
                     className="form-select"
@@ -106,21 +100,21 @@ const History = () => {
                     onChange={(e) => setFilter({ ...filter, type: e.target.value })}
                     style={{ width: 'auto' }}
                 >
-                    <option value="all">All Types</option>
-                    <option value="income">Income</option>
-                    <option value="expense">Expense</option>
+                    <option value="all">{t('history.allTypes')}</option>
+                    <option value="income">{t('entry.income')}</option>
+                    <option value="expense">{t('entry.expense')}</option>
                 </select>
             </div>
 
             <div className="card">
                 {loading ? (
                     <div className="empty-state">
-                        <p>Loading...</p>
+                        <p>{t('common.loading')}</p>
                     </div>
                 ) : transactions.length === 0 ? (
                     <div className="empty-state">
                         <div className="empty-state-icon">📝</div>
-                        <p>No transactions found</p>
+                        <p>{t('history.noTransactions')}</p>
                     </div>
                 ) : (
                     <div>
@@ -134,7 +128,7 @@ const History = () => {
                                         {tx.category.replace('_', ' ')}
                                         {tx.description && <span className="text-muted"> - {tx.description}</span>}
                                     </div>
-                                    <div className="transaction-date">{formatDate(tx.date)}</div>
+                                    <div className="transaction-date">{formatDisplayDate(tx.date)}</div>
                                 </div>
                                 <div className={`transaction-amount ${tx.type === 'income' ? 'text-success' : 'text-danger'}`}>
                                     {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}

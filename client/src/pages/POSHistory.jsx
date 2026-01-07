@@ -68,7 +68,7 @@ const POSHistory = () => {
             }
         } catch (error) {
             console.error('Error cancelling sale:', error);
-            alert('Failed to cancel sale');
+            alert(t('posHistory.cancelSaleFailed'));
         }
     };
 
@@ -91,7 +91,7 @@ const POSHistory = () => {
             }
         } catch (error) {
             console.error('Error restoring sale:', error);
-            alert('Failed to restore sale');
+            alert(t('posHistory.restoreSaleFailed'));
         }
     };
 
@@ -112,7 +112,7 @@ const POSHistory = () => {
             }
         } catch (error) {
             console.error('Error cancelling item:', error);
-            alert('Failed to cancel item');
+            alert(t('posHistory.cancelItemFailed'));
         }
     };
 
@@ -133,7 +133,7 @@ const POSHistory = () => {
             }
         } catch (error) {
             console.error('Error restoring item:', error);
-            alert('Failed to restore item');
+            alert(t('posHistory.restoreItemFailed'));
         }
     };
 
@@ -197,7 +197,7 @@ const POSHistory = () => {
                                     <tr className={`${expandedSale === sale.id ? 'bg-active' : ''} ${sale.status === 'cancelled' ? 'row-cancelled' : ''}`}>
                                         <td className="text-muted">
                                             {formatDate(sale.saleDate)}
-                                            {sale.status === 'cancelled' && <span className="status-badge status-cancelled ml-2">CANCELLED</span>}
+                                            {sale.status === 'cancelled' && <span className="status-badge status-cancelled ml-2">{t('posHistory.cancelled')}</span>}
                                         </td>
                                         <td>
                                             <span className="font-mono text-sm">{sale.paper_order_ref || '-'}</span>
@@ -231,7 +231,7 @@ const POSHistory = () => {
                                                         <div className="receipt-title">{t('posHistory.orderReceipt')}</div>
                                                         <div className="receipt-id">#{sale.paper_order_ref || sale.id}</div>
                                                         <div className={`status-badge ${sale.status === 'cancelled' ? 'status-cancelled' : 'status-completed'} mt-sm`}>
-                                                            {sale.status === 'cancelled' ? 'CANCELLED' : t('posHistory.completed')}
+                                                            {sale.status === 'cancelled' ? t('posHistory.cancelled') : t('posHistory.completed')}
                                                         </div>
                                                     </div>
 
@@ -244,7 +244,7 @@ const POSHistory = () => {
                                                                     <div className="item-info">
                                                                         <div className="item-name">
                                                                             {item.itemName}
-                                                                            {isItemCancelled && <span className="text-red-500 text-xs ml-2">(Cancelled)</span>}
+                                                                            {isItemCancelled && <span className="text-red-500 text-xs ml-2">({t('posHistory.cancelled')})</span>}
                                                                         </div>
                                                                         {options.length > 0 && (
                                                                             <div className="item-options">
@@ -261,7 +261,7 @@ const POSHistory = () => {
                                                                             <button
                                                                                 className="btn-icon-danger btn-sm"
                                                                                 onClick={() => handleCancelItem(sale.id, item.id)}
-                                                                                title="Cancel Item"
+                                                                                title={t('posHistory.cancelItem')}
                                                                                 style={{ padding: '2px 6px', fontSize: '12px' }}
                                                                             >
                                                                                 ❌
@@ -271,7 +271,7 @@ const POSHistory = () => {
                                                                             <button
                                                                                 className="btn-icon-secondary btn-sm"
                                                                                 onClick={() => handleUncancelItem(sale.id, item.id)}
-                                                                                title="Restore Item"
+                                                                                title={t('posHistory.restoreItem')}
                                                                                 style={{ padding: '2px 6px', fontSize: '12px' }}
                                                                             >
                                                                                 ↩️
@@ -299,12 +299,12 @@ const POSHistory = () => {
                                                                 <button
                                                                     className="btn btn-danger btn-sm"
                                                                     onClick={() => {
-                                                                        if (confirm('Are you sure you want to cancel this entire order?')) {
+                                                                        if (confirm(t('posHistory.confirmCancelOrder'))) {
                                                                             handleCancelSale(sale.id);
                                                                         }
                                                                     }}
                                                                 >
-                                                                    🚫 Cancel Entire Order
+                                                                    🚫 {t('posHistory.cancelEntireOrder')}
                                                                 </button>
                                                             </div>
                                                         ) : (
@@ -313,7 +313,7 @@ const POSHistory = () => {
                                                                     className="btn btn-secondary btn-sm"
                                                                     onClick={() => handleUncancelSale(sale.id)}
                                                                 >
-                                                                    ↩️ Restore Order
+                                                                    ↩️ {t('posHistory.restoreOrder')}
                                                                 </button>
                                                             </div>
                                                         )}

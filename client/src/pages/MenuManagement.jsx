@@ -296,7 +296,7 @@ const MenuManagement = () => {
     };
 
     const deleteMenu = async (id) => {
-        if (!confirm(t('common.deleteConfirm') || 'Delete this menu?')) return;
+        if (!confirm(t('menuManagement.deleteMenuConfirm'))) return;
         await postData(`/menu/menus/${id}`, {}, 'DELETE');
         fetchData();
     };
@@ -352,13 +352,13 @@ const MenuManagement = () => {
     };
 
     const deleteOptionGroup = async (id) => {
-        if (!confirm(t('common.deleteConfirm') || 'Delete this group and all its options?')) return;
+        if (!confirm(t('menuManagement.confirmDeleteGroup'))) return;
         await postData(`/menu/option-groups/${id}`, {}, 'DELETE');
         fetchData();
     };
 
     const deleteOption = async (id) => {
-        if (!confirm(t('common.deleteConfirm') || 'Delete this option?')) return;
+        if (!confirm(t('menuManagement.deleteOptionConfirm'))) return;
         await postData(`/menu/options/${id}`, {}, 'DELETE');
         fetchData();
     };
@@ -534,7 +534,7 @@ const MenuManagement = () => {
                                                 placeholder={t('menuManagement.pricePlaceholder')}
                                                 style={{ width: '80px', marginBottom: 0 }}
                                             />
-                                            <button className="btn btn-primary btn-sm" onClick={() => addMenu(cat.id)}>+ Menu</button>
+                                            <button className="btn btn-primary btn-sm" onClick={() => addMenu(cat.id)}>+ {t('menuManagement.menu')}</button>
                                         </div>
                                     </div>
                                 </div>

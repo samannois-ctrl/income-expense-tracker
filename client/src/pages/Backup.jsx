@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config/api.js';
+import { useSettings } from '../context/SettingsContext';
 
 const Backup = () => {
+    const { t } = useSettings();
     const [activeTab, setActiveTab] = useState('manual');
     const [backups, setBackups] = useState([]);
     const [schedule, setSchedule] = useState({
@@ -46,22 +48,38 @@ const Backup = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await axios.get(`${API_URL}/backup/download`, {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: 'blob'
+
+            // 1. Create backup on server
+            const createRes = await axios.post(`${API_URL}/backup/create`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
             });
 
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `backup-${new Date().toISOString().replace(/[:.]/g, '-')}.sql`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            if (createRes.data.success) {
+                const filename = createRes.data.backup.filename;
 
-            showMessage('Backup downloaded successfully', 'success');
+                // 2. Refresh backup list
+                await fetchBackups();
+
+                // 3. Download the created file
+                const downloadRes = await axios.get(`${API_URL}/backup/download/${filename}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    responseType: 'blob'
+                });
+
+                const url = window.URL.createObjectURL(new Blob([downloadRes.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', filename);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+
+                showMessage('Backup created and downloaded successfully', 'success');
+            }
         } catch (error) {
-            showMessage('Failed to download backup', 'error');
+            console.error('Backup error:', error);
+            showMessage('Failed to create/download backup', 'error');
         } finally {
             setLoading(false);
         }
@@ -172,8 +190,10 @@ const Backup = () => {
     return (
         <div>
             <div className="page-header">
-                <h1 className="page-title">Backup & Restore</h1>
-                <p className="page-subtitle">Manage database backups and scheduled backups</p>
+                <div className="page-header">
+                    <h1 className="page-title">{t('backup.title')}</h1>
+                    <p className="page-subtitle">{t('backup.subtitle')}</p>
+                </div>
             </div>
 
             {message && (
@@ -187,51 +207,51 @@ const Backup = () => {
                     className={`tab ${activeTab === 'manual' ? 'active' : ''}`}
                     onClick={() => setActiveTab('manual')}
                 >
-                    Manual Backup
+                    {t('backup.manualTab')}
                 </button>
                 <button
                     className={`tab ${activeTab === 'schedule' ? 'active' : ''}`}
                     onClick={() => setActiveTab('schedule')}
                 >
-                    Scheduled Backups
+                    {t('backup.scheduleTab')}
                 </button>
                 <button
                     className={`tab ${activeTab === 'history' ? 'active' : ''}`}
                     onClick={() => setActiveTab('history')}
                 >
-                    Backup History
+                    {t('backup.historyTab')}
                 </button>
             </div>
 
             {activeTab === 'manual' && (
                 <div className="card">
                     <div className="card-header">
-                        <span className="card-title">Manual Backup & Restore</span>
+                        <span className="card-title">{t('backup.manualTitle')}</span>
                     </div>
 
                     <div style={{ padding: '1.5rem' }}>
                         <div style={{ marginBottom: '2rem' }}>
                             <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--color-text-primary)' }}>
-                                Download Current Database
+                                {t('backup.downloadCurrent')}
                             </h3>
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-                                Download a backup of the current database
+                                {t('backup.downloadCurrentDesc')}
                             </p>
                             <button
                                 className="btn btn-primary"
                                 onClick={handleDownloadCurrent}
                                 disabled={loading}
                             >
-                                {loading ? 'Downloading...' : '📥 Download Backup'}
+                                {loading ? t('common.loading') : t('backup.downloadBtn')}
                             </button>
                         </div>
 
                         <div>
                             <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--color-text-primary)' }}>
-                                Restore Database
+                                {t('backup.restoreTitle')}
                             </h3>
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-                                Upload a backup file to restore the database
+                                {t('backup.restoreDesc')}
                             </p>
                             <input
                                 type="file"
@@ -241,7 +261,7 @@ const Backup = () => {
                                 id="restore-input"
                             />
                             <label htmlFor="restore-input" className="btn btn-secondary">
-                                📤 Upload & Restore
+                                {t('backup.uploadBtn')}
                             </label>
                         </div>
                     </div>
@@ -251,7 +271,7 @@ const Backup = () => {
             {activeTab === 'schedule' && (
                 <div className="card">
                     <div className="card-header">
-                        <span className="card-title">Scheduled Backup Settings</span>
+                        <span className="card-title">{t('backup.scheduleTitle')}</span>
                     </div>
 
                     <div style={{ padding: '1.5rem' }}>
@@ -263,12 +283,12 @@ const Backup = () => {
                                     onChange={(e) => setSchedule({ ...schedule, enabled: e.target.checked })}
                                     style={{ marginRight: '0.5rem' }}
                                 />
-                                Enable automatic daily backups
+                                {t('backup.enableAuto')}
                             </label>
                         </div>
 
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label className="form-label">Backup Time</label>
+                            <label className="form-label">{t('backup.backupTime')}</label>
                             <input
                                 type="time"
                                 className="form-input"
@@ -278,7 +298,7 @@ const Backup = () => {
                         </div>
 
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label className="form-label">Retention Days</label>
+                            <label className="form-label">{t('backup.retentionDays')}</label>
                             <input
                                 type="number"
                                 className="form-input"
@@ -288,7 +308,7 @@ const Backup = () => {
                                 max="365"
                             />
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
-                                Backups older than this will be automatically deleted
+                                {t('backup.retentionDesc')}
                             </p>
                         </div>
 
@@ -297,7 +317,7 @@ const Backup = () => {
                             onClick={handleSaveSchedule}
                             disabled={loading}
                         >
-                            {loading ? 'Saving...' : '💾 Save Settings'}
+                            {loading ? t('common.loading') : t('backup.saveSettings')}
                         </button>
                     </div>
                 </div>
@@ -306,16 +326,16 @@ const Backup = () => {
             {activeTab === 'history' && (
                 <div className="card">
                     <div className="card-header">
-                        <span className="card-title">Backup History</span>
+                        <span className="card-title">{t('backup.historyTitle')}</span>
                         <button className="btn btn-secondary btn-sm" onClick={fetchBackups}>
-                            🔄 Refresh
+                            {t('backup.refresh')}
                         </button>
                     </div>
 
                     {backups.length === 0 ? (
                         <div className="empty-state">
                             <div className="empty-state-icon">💾</div>
-                            <p>No backups found</p>
+                            <p>{t('backup.noBackups')}</p>
                         </div>
                     ) : (
                         <div>

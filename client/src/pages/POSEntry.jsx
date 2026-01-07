@@ -291,7 +291,7 @@ const POSEntry = () => {
         if (!selectedMenu) return;
         if (currentCartKey === 'none') {
             if (orderType !== 'quick_sale') {
-                alert("Please select a table first or choose Take Away.");
+                alert(t('pos.selectTableAlert'));
                 return;
             }
             // Should be covered by logic above, but fallback
@@ -301,7 +301,7 @@ const POSEntry = () => {
         const selectedOptNames = [];
         const rawOptions = [];
 
-        if (isTakeAway) selectedOptNames.push('กลับบ้าน');
+        if (isTakeAway) selectedOptNames.push(t('pos.takeAwayItem'));
 
         activeGroups.forEach(group => {
             const selection = currentSelections[group.id];
@@ -385,7 +385,7 @@ const POSEntry = () => {
     };
 
     const handleAddTable = async () => {
-        const name = prompt(t('pos.enterTableName') || "Enter Table Name:");
+        const name = prompt(t('pos.enterTableName'));
         if (!name) return;
         try {
             const token = localStorage.getItem('token');
@@ -415,7 +415,7 @@ const POSEntry = () => {
 
     const confirmNewTakeAway = () => {
         if (!customerDetails.name) {
-            alert("Customer Name is required");
+            alert(t('pos.customerNameRequired'));
             return;
         }
         setShowNewOrderModal(false);
@@ -474,7 +474,7 @@ const POSEntry = () => {
             }
 
             // Success
-            alert("Order Sent!");
+            alert(t('pos.orderSent'));
             updateCurrentCart([]); // Clear cart for CURRENT TABLE/MODE
 
             if (orderType === 'dine_in') {
@@ -505,7 +505,7 @@ const POSEntry = () => {
     // Quick Sale: Save = Create Sale + Immediate Pay (Exact Amount)
     const handleQuickSave = async () => {
         if (cart.length === 0) {
-            alert(t('pos.alertEmptyOrder') || "Please add items to order");
+            alert(t('pos.alertEmptyOrder'));
             return;
         }
 
@@ -579,7 +579,7 @@ const POSEntry = () => {
 
     const handleCheckBill = () => {
         if (cart.length > 0) {
-            if (!confirm("You have unsent items in cart. Discard them and check bill?")) return;
+            if (!confirm(t('pos.discardCartConfirm'))) return;
         }
         setShowPaymentModal(true);
     };
@@ -593,7 +593,7 @@ const POSEntry = () => {
             const saleIdToPay = activeTable?.current_sale_id || selectedSaleId;
 
             if (!saleIdToPay) {
-                alert("No active order to pay for.");
+                alert(t('pos.noActiveOrder'));
                 return;
             }
 
@@ -608,7 +608,7 @@ const POSEntry = () => {
 
             if (!res.ok) throw new Error('Payment failed');
 
-            alert("Payment Successful!");
+            alert(t('pos.paymentSuccess'));
             setShowPaymentModal(false);
             setCashReceived('');
             setLastOrderSaleId(null); // Clear tracked ID
@@ -639,7 +639,7 @@ const POSEntry = () => {
     };
 
     const handleClearTable = async () => {
-        if (!confirm("Clear this table for new customer?")) return;
+        if (!confirm(t('pos.clearTableConfirm'))) return;
         try {
             const token = localStorage.getItem('token');
             await fetch(`${API_URL}/pos/tables/${selectedTable}/clear`, {
@@ -668,7 +668,7 @@ const POSEntry = () => {
             });
             const data = await res.json();
             if (data.success) {
-                alert("Table Moved Successfully!");
+                alert(t('pos.tableMoved'));
                 setShowMoveModal(false);
                 setTargetTableId('');
                 setSelectedTable(Number(targetTableId)); // Switch view to new table
@@ -712,7 +712,7 @@ const POSEntry = () => {
                         <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#374151' }}>Order Type:</span>
                         {isQuickSaleMode ? (
                             <div style={{ padding: '0.5rem 1.5rem', borderRadius: '10px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 'bold', border: '1px solid #bae6fd', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                ⚡ Quick Sale
+                                ⚡ {t('pos.quickSale')}
                             </div>
                         ) : (
                             <div style={{ display: 'flex', backgroundColor: '#f3f4f6', borderRadius: '12px', padding: '4px' }}>
@@ -726,7 +726,7 @@ const POSEntry = () => {
                                         transition: 'all 0.2s'
                                     }}
                                 >
-                                    🍽️ Dine-in
+                                    🍽️ {t('pos.dineIn')}
                                 </button>
                                 <button
                                     onClick={() => { setOrderType('take_away'); setSelectedTable(null); }}
@@ -738,7 +738,7 @@ const POSEntry = () => {
                                         transition: 'all 0.2s'
                                     }}
                                 >
-                                    🥡 Take Away
+                                    🥡 {t('pos.takeaway')}
                                 </button>
                                 <button
                                     onClick={() => {
@@ -757,7 +757,7 @@ const POSEntry = () => {
                                         display: 'flex', alignItems: 'center', gap: '0.25rem'
                                     }}
                                 >
-                                    ⚡ Quick Sale
+                                    ⚡ {t('pos.quickSale')}
                                 </button>
                             </div>
                         )}
@@ -776,7 +776,7 @@ const POSEntry = () => {
                                     display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#6b7280', transition: 'all 0.2s'
                                 }}
                             >
-                                + Add Table
+                                + {t('pos.addTable')}
                             </button>
                         </div>
 
@@ -828,7 +828,7 @@ const POSEntry = () => {
                                     boxShadow: '0 2px 4px rgba(217, 119, 6, 0.3)'
                                 }}
                             >
-                                + New Order
+                                + {t('pos.newOrder')}
                             </button>
                         </div>
 
@@ -868,7 +868,7 @@ const POSEntry = () => {
 
                             {activeTakeaways.length === 0 && (
                                 <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                                    No active take away orders. Create a new one!
+                                    {t('pos.noActiveTakeaway')}
                                 </div>
                             )}
                         </div>
@@ -879,7 +879,7 @@ const POSEntry = () => {
                 {orderType === 'take_away' && (selectedSaleId || isNewTakeAwayMode) && (
                     <div style={{ marginBottom: '1.5rem', backgroundColor: '#fffbeb', padding: '1rem', borderRadius: '16px', border: '1px solid #fcd34d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <div style={{ fontSize: '0.85rem', color: '#92400e', fontWeight: 'bold', textTransform: 'uppercase' }}>Current Order</div>
+                            <div style={{ fontSize: '0.85rem', color: '#92400e', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('pos.currentOrder')}</div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#78350f' }}>
                                 {customerDetails.name} {customerDetails.phone && <span style={{ fontSize: '0.9rem', fontWeight: 'normal' }}>({customerDetails.phone})</span>}
                             </div>
@@ -888,7 +888,7 @@ const POSEntry = () => {
                             onClick={handleBackToTakeAwayList}
                             style={{ padding: '0.5rem 1rem', backgroundColor: 'white', border: '1px solid #fcd34d', borderRadius: '8px', color: '#92400e', cursor: 'pointer', fontWeight: 'bold' }}
                         >
-                            ← Back to List
+                            ← {t('pos.backToList')}
                         </button>
                     </div>
                 )}
@@ -984,14 +984,14 @@ const POSEntry = () => {
                     {existingItems.length > 0 && (
                         <div style={{ opacity: 0.8 }}>
                             <div style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: 'bold', marginBottom: '0.5rem', borderBottom: '1px dashed #ccc', paddingBottom: '4px' }}>
-                                SENT TO KITCHEN
+                                {t('pos.sentToKitchen')}
                             </div>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
                                 <thead>
                                     <tr style={{ color: '#6b7280', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
-                                        <th style={{ padding: '0.5rem', textAlign: 'center' }}>Qty</th>
-                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Item</th>
-                                        <th style={{ padding: '0.5rem', textAlign: 'right' }}>Total</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'center' }}>{t('pos.qty')}</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('pos.item')}</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('pos.total')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1021,9 +1021,9 @@ const POSEntry = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ color: '#6b7280', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
-                                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}>Qty</th>
-                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Item</th>
-                                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '70px' }}>Total</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}>{t('pos.qty')}</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('pos.item')}</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '70px' }}>{t('pos.total')}</th>
                                         <th style={{ padding: '0.5rem', width: '40px' }}></th>
                                     </tr>
                                 </thead>
@@ -1062,7 +1062,7 @@ const POSEntry = () => {
                                     {cart.length === 0 && existingItems.length === 0 && (
                                         <tr>
                                             <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>
-                                                Cart is empty
+                                                {t('pos.cartEmpty')}
                                             </td>
                                         </tr>
                                     )}
@@ -1074,7 +1074,7 @@ const POSEntry = () => {
 
                 <div style={{ padding: '1.5rem', backgroundColor: '#fff', borderTop: '1px solid #e5e7eb' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '800', color: '#111827' }}>
-                        <span>Table Total:</span>
+                        <span>{t('pos.tableTotal')}:</span>
                         <span>{(existingTotal + cart.reduce((s, i) => s + (i.unit_price * i.quantity), 0)).toLocaleString()} ฿</span>
                     </div>
 
@@ -1095,14 +1095,14 @@ const POSEntry = () => {
                                     onClick={handleClearTable}
                                     style={{ height: '64px', fontSize: '1.2rem', borderRadius: '16px', fontWeight: 'bold' }}
                                 >
-                                    🧹 Clear Table
+                                    🧹 {t('pos.clearTable')}
                                 </button>
                                 <button
                                     className="btn btn-secondary btn-lg btn-block"
                                     onClick={() => setShowMoveModal(true)}
                                     style={{ height: '64px', fontSize: '1.2rem', borderRadius: '16px', fontWeight: 'bold' }}
                                 >
-                                    ↔ Move Table
+                                    ↔ {t('pos.moveTable')}
                                 </button>
                             </>
                         ) : (
@@ -1113,7 +1113,7 @@ const POSEntry = () => {
                                     disabled={existingItems.length === 0 && cart.length === 0}
                                     style={{ height: '64px', fontSize: '1.2rem', borderRadius: '16px', fontWeight: 'bold', color: '#78350f', backgroundColor: '#fcd34d' }}
                                 >
-                                    💰 Check Bill
+                                    💰 {t('pos.checkBill')}
                                 </button>
                                 <button
                                     className="btn btn-success btn-lg btn-block"
@@ -1121,7 +1121,7 @@ const POSEntry = () => {
                                     disabled={cart.length === 0 || isProcessing}
                                     style={{ height: '64px', fontSize: '1.2rem', borderRadius: '16px', fontWeight: 'bold' }}
                                 >
-                                    ✅ Send Order
+                                    ✅ {t('pos.sendOrder')}
                                 </button>
                                 {selectedTable && tables.find(t => t.id === selectedTable)?.status === 'occupied' && (
                                     <button
@@ -1129,7 +1129,7 @@ const POSEntry = () => {
                                         onClick={() => setShowMoveModal(true)}
                                         style={{ height: '48px', fontSize: '1rem', borderRadius: '12px', fontWeight: 'bold', gridColumn: 'span 2', marginTop: '-0.5rem' }}
                                     >
-                                        ↔ Move Table
+                                        ↔ {t('pos.moveTable')}
                                     </button>
                                 )}
                             </>
@@ -1146,10 +1146,10 @@ const POSEntry = () => {
                         backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
                     }}>
                         <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '400px' }}>
-                            <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>🥡 New Take Away Order</h2>
+                            <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>🥡 {t('pos.newTakeAwayOrder')}</h2>
 
                             <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Customer Name *</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>{t('pos.customerName')}</label>
                                 <input
                                     autoFocus
                                     type="text"
@@ -1161,7 +1161,7 @@ const POSEntry = () => {
                             </div>
 
                             <div style={{ marginBottom: '2rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Phone Number (Optional)</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>{t('pos.phoneNumber')}</label>
                                 <input
                                     type="tel"
                                     value={customerDetails.phone}
@@ -1182,7 +1182,7 @@ const POSEntry = () => {
                                     onClick={confirmNewTakeAway}
                                     style={{ flex: 1, padding: '1rem', borderRadius: '12px', border: 'none', backgroundColor: '#d97706', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
                                 >
-                                    Start Order
+                                    {t('pos.startOrder')}
                                 </button>
                             </div>
                         </div>
@@ -1223,7 +1223,7 @@ const POSEntry = () => {
                                             gap: '0.5rem'
                                         }}
                                     >
-                                        {isTakeAway ? '🥡 Take Away' : '🍽️ Dine-in'}
+                                        {isTakeAway ? `🥡 ${t('pos.takeaway')}` : `🍽️ ${t('pos.dineIn')}`}
                                     </button>
 
                                     <button
@@ -1238,18 +1238,18 @@ const POSEntry = () => {
 
                             {/* Options Body */}
                             <div style={{ padding: '2rem' }}>
-                                {activeGroups.length === 0 && <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '1.2rem' }}>No options available for this item.</p>}
+                                {activeGroups.length === 0 && <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '1.2rem' }}>{t('pos.noOptions')}</p>}
 
                                 {activeGroups.map(group => (
                                     <div key={group.id} style={{ marginBottom: '2.5rem' }}>
                                         <h3 style={{ marginBottom: '1rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1.4rem' }}>
                                             {group.name}
                                             <span style={{ fontSize: '0.9rem', fontWeight: 'normal', backgroundColor: '#f3f4f6', color: '#6b7280', padding: '4px 12px', borderRadius: '20px' }}>
-                                                {group.selection_type === 'single' ? 'Pick 1' : 'Pick Any'}
+                                                {group.selection_type === 'single' ? t('pos.pick1') : t('pos.pickAny')}
                                             </span>
                                             {group.is_optional === 0 && (
                                                 <span style={{ fontSize: '0.9rem', color: '#dc2626', backgroundColor: '#fee2e2', padding: '4px 12px', borderRadius: '20px' }}>
-                                                    Required
+                                                    {t('menuManagement.required')}
                                                 </span>
                                             )}
                                         </h3>
@@ -1280,7 +1280,7 @@ const POSEntry = () => {
                                                     >
                                                         <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.25rem' }}>{opt.name}</div>
                                                         <div style={{ fontSize: '0.9rem', color: isSelected ? '#2563eb' : '#6b7280' }}>
-                                                            {opt.price_adjustment > 0 ? `+${opt.price_adjustment}฿` : 'Free'}
+                                                            {opt.price_adjustment > 0 ? `+${opt.price_adjustment}฿` : t('pos.free')}
                                                         </div>
                                                     </button>
                                                 );
@@ -1297,7 +1297,7 @@ const POSEntry = () => {
                                     style={{ height: '70px', fontSize: '1.5rem', borderRadius: '16px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)' }}
                                     onClick={addToCart}
                                 >
-                                    Add to Order — {calculateCurrentPrice()} ฿
+                                    {t('pos.addToOrder')} — {calculateCurrentPrice()} ฿
                                 </button>
                             </div>
                         </div>
@@ -1319,7 +1319,7 @@ const POSEntry = () => {
                             <div className="payment-modal-header">
                                 <div>
                                     <h2 style={{ fontSize: '2rem', margin: 0, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <span>💸 Payment</span>
+                                        <span>💸 {t('pos.payment')}</span>
                                     </h2>
                                     <div style={{ fontSize: '1.1rem', color: '#6b7280', marginTop: '0.25rem' }}>
                                         {orderType === 'dine_in'
@@ -1340,7 +1340,7 @@ const POSEntry = () => {
 
                                 {/* LEFT: Order Summary */}
                                 <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                    <h3 style={{ marginTop: 0, color: '#374151' }}>Order Summary</h3>
+                                    <h3 style={{ marginTop: 0, color: '#374151' }}>{t('pos.orderSummary')}</h3>
                                     <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1rem' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                             <thead>
@@ -1377,14 +1377,14 @@ const POSEntry = () => {
                                     <div style={{ backgroundColor: '#f9fafb', padding: '1.5rem', borderRadius: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
                                         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                                            <div style={{ fontSize: '0.9rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Amount</div>
+                                            <div style={{ fontSize: '0.9rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 'bold' }}>{t('pos.totalAmount')}</div>
                                             <div style={{ fontSize: '3.5rem', fontWeight: '800', color: '#111827', lineHeight: 1 }}>
                                                 {grandTotal.toLocaleString()} <span style={{ fontSize: '1.5rem', color: '#9ca3af' }}>฿</span>
                                             </div>
                                         </div>
 
                                         <div style={{ marginBottom: 'auto' }}>
-                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '1.1rem', color: '#374151' }}>Cash Received</label>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '1.1rem', color: '#374151' }}>{t('pos.cashReceived')}</label>
                                             <div style={{ position: 'relative' }}>
                                                 <input
                                                     type="number"
@@ -1432,14 +1432,14 @@ const POSEntry = () => {
                                                         onClick={() => setCashReceived(String(grandTotal))}
                                                         style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #2563eb', background: '#eff6ff', cursor: 'pointer', fontWeight: 'bold', color: '#2563eb', fontSize: '1.25rem' }}
                                                     >
-                                                        Exact
+                                                        {t('pos.exact')}
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '2px dashed #e5e7eb' }}>
-                                            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#4b5563' }}>Change</span>
+                                            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#4b5563' }}>{t('pos.change')}</span>
                                             <span style={{ fontSize: '2rem', fontWeight: 'bold', color: change < 0 ? '#ef4444' : '#059669' }}>
                                                 {change.toLocaleString()} ฿
                                             </span>
@@ -1452,14 +1452,14 @@ const POSEntry = () => {
                                             onClick={() => setShowPaymentModal(false)}
                                             style={{ flex: 1, height: '60px', borderRadius: '16px', fontSize: '1.2rem' }}
                                         >
-                                            Cancel
+                                            {t('common.cancel')}
                                         </button>
                                         <button
                                             className="btn btn-primary"
                                             onClick={confirmPayment}
                                             style={{ flex: 2, height: '60px', borderRadius: '16px', fontSize: '1.2rem', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.4)' }}
                                         >
-                                            Confirm Payment
+                                            {t('pos.confirmPayment')}
                                         </button>
                                     </div>
                                 </div>
@@ -1477,8 +1477,8 @@ const POSEntry = () => {
                         display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200
                     }}>
                         <div style={{ backgroundColor: '#fff', borderRadius: '24px', padding: '2rem', width: '500px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-                            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#111827' }}>Move Table</h2>
-                            <p style={{ marginBottom: '1.5rem', color: '#666' }}>Select the new table for the current order.</p>
+                            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#111827' }}>{t('pos.moveTable')}</h2>
+                            <p style={{ marginBottom: '1.5rem', color: '#666' }}>{t('pos.moveTableInstruction')}</p>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '1rem', maxHeight: '400px', overflowY: 'auto', padding: '1rem', border: '1px solid #eee', borderRadius: '12px', marginBottom: '2rem' }}>
                                 {tables.filter(t => t.status === 'available' || t.status === 'paid').map(t => (
@@ -1507,7 +1507,7 @@ const POSEntry = () => {
                                     onClick={() => { setShowMoveModal(false); setTargetTableId(''); }}
                                     style={{ flex: 1, height: '50px', borderRadius: '12px', fontSize: '1.1rem' }}
                                 >
-                                    Cancel
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     className="btn btn-primary"
@@ -1515,7 +1515,7 @@ const POSEntry = () => {
                                     disabled={!targetTableId}
                                     style={{ flex: 1, height: '50px', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold' }}
                                 >
-                                    Confirm Move
+                                    {t('pos.confirmMove')}
                                 </button>
                             </div>
                         </div>

@@ -14,6 +14,7 @@ import Categories from './pages/Categories';
 import MenuManagement from './pages/MenuManagement';
 import POSEntry from './pages/POSEntry';
 import POSHistory from './pages/POSHistory';
+import Reports from './pages/Reports';
 import './index.css';
 
 // Protected Route Component
@@ -94,6 +95,7 @@ function App() {
               <Route path="pos" element={<POSEntry />} />
               <Route path="sales-record" element={<POSEntry />} />
               <Route path="pos/history" element={<POSHistory />} />
+              <Route path="report" element={<Reports />} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<Settings />} />
               <Route

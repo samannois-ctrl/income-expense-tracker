@@ -64,6 +64,10 @@ const Sidebar = ({ onLinkClick }) => {
                         <span className="sidebar-link-icon">🕒</span>
                         <span>ประวัติการขาย</span>
                     </NavLink>
+                    <NavLink to="/report" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={handleLinkClick}>
+                        <span className="sidebar-link-icon">📉</span>
+                        <span>รายงาน</span>
+                    </NavLink>
 
                 </div>
 

@@ -7,6 +7,7 @@ import backupRoutes from './routes/backup.js';
 import categoryRoutes from './routes/categories.js';
 import menuRoutes from './routes/menu.js';
 import posRoutes from './routes/pos.js';
+import reportRoutes from './routes/reports.js';
 import { startScheduler } from './backupScheduler.js';
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/pos', posRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

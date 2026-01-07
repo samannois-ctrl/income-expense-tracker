@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateUser } from '../services/api';
 import { BASE_URL } from '../config/api.js';
+import { useSettings } from '../context/SettingsContext';
 
 const Profile = () => {
+    const { t } = useSettings();
     const { user, updateUser: updateAuthUser } = useAuth();
     const [formData, setFormData] = useState({
         fullName: user?.fullName || '',
@@ -35,7 +37,7 @@ const Profile = () => {
         setSuccess('');
 
         if (formData.password && formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
+            setError(t('profile.passwordMismatch'));
             return;
         }
 
@@ -54,7 +56,7 @@ const Profile = () => {
 
             const res = await updateUser(user.id, form);
             updateAuthUser(res.data);
-            setSuccess('Profile updated successfully!');
+            setSuccess(t('profile.success'));
             setFormData({ ...formData, password: '', confirmPassword: '' });
         } catch (err) {
             setError(err.response?.data?.error || 'An error occurred');
@@ -71,8 +73,8 @@ const Profile = () => {
     return (
         <div>
             <div className="page-header">
-                <h1 className="page-title">Profile</h1>
-                <p className="page-subtitle">Manage your account settings</p>
+                <h1 className="page-title">{t('profile.title')}</h1>
+                <p className="page-subtitle">{t('profile.subtitle')}</p>
             </div>
 
             <div className="card" style={{ maxWidth: '600px' }}>
@@ -89,7 +91,7 @@ const Profile = () => {
                             )}
                         </div>
                         <label className="btn btn-secondary">
-                            📷 Change Photo
+                            {t('profile.changePhoto')}
                             <input
                                 type="file"
                                 accept="image/*"
@@ -100,7 +102,7 @@ const Profile = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Email</label>
+                        <label className="form-label">{t('profile.email')}</label>
                         <input
                             type="email"
                             className="form-input"
@@ -111,7 +113,7 @@ const Profile = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Full Name</label>
+                        <label className="form-label">{t('profile.fullName')}</label>
                         <input
                             type="text"
                             name="fullName"
@@ -123,12 +125,12 @@ const Profile = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Phone</label>
+                        <label className="form-label">{t('profile.phone')}</label>
                         <input
                             type="tel"
                             name="phone"
                             className="form-input"
-                            placeholder="Enter your phone number"
+                            placeholder={t('profile.phonePlaceholder')}
                             value={formData.phone}
                             onChange={handleChange}
                         />
@@ -136,34 +138,34 @@ const Profile = () => {
 
                     <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: 'var(--spacing-lg) 0' }} />
 
-                    <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1rem' }}>Change Password</h3>
+                    <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1rem' }}>{t('profile.changePassword')}</h3>
 
                     <div className="form-group">
-                        <label className="form-label">New Password</label>
+                        <label className="form-label">{t('profile.newPassword')}</label>
                         <input
                             type="password"
                             name="password"
                             className="form-input"
-                            placeholder="Leave blank to keep current"
+                            placeholder={t('profile.passwordHint')}
                             value={formData.password}
                             onChange={handleChange}
                         />
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Confirm Password</label>
+                        <label className="form-label">{t('profile.confirmPassword')}</label>
                         <input
                             type="password"
                             name="confirmPassword"
                             className="form-input"
-                            placeholder="Confirm new password"
+                            placeholder={t('profile.confirmPasswordPlaceholder')}
                             value={formData.confirmPassword}
                             onChange={handleChange}
                         />
                     </div>
 
                     <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
-                        {loading ? 'Saving...' : 'Save Changes'}
+                        {loading ? t('profile.saving') : t('profile.save')}
                     </button>
                 </form>
             </div>

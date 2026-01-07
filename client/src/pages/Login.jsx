@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login as loginApi } from '../services/api';
+import { useSettings } from '../context/SettingsContext';
 
 const Login = () => {
+    const { t } = useSettings();
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -40,20 +42,20 @@ const Login = () => {
             <div className="login-card">
                 <div className="login-header">
                     <div className="login-logo">💰</div>
-                    <h1 className="login-title">Welcome Back</h1>
-                    <p className="login-subtitle">Sign in to your account</p>
+                    <h1 className="login-title">{t('login.welcome')}</h1>
+                    <p className="login-subtitle">{t('login.subtitle')}</p>
                 </div>
 
                 {error && <div className="error-message">{error}</div>}
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label className="form-label">Username</label>
+                        <label className="form-label">{t('login.username')}</label>
                         <input
                             type="text"
                             name="username"
                             className="form-input"
-                            placeholder="Enter your username"
+                            placeholder={t('login.usernamePlaceholder')}
                             value={formData.username}
                             onChange={handleChange}
                             required
@@ -61,12 +63,12 @@ const Login = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Password</label>
+                        <label className="form-label">{t('login.password')}</label>
                         <input
                             type="password"
                             name="password"
                             className="form-input"
-                            placeholder="Enter your password"
+                            placeholder={t('login.passwordPlaceholder')}
                             value={formData.password}
                             onChange={handleChange}
                             required
@@ -74,7 +76,7 @@ const Login = () => {
                     </div>
 
                     <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
-                        {loading ? 'Please wait...' : 'Sign In'}
+                        {loading ? t('login.processing') : t('login.signIn')}
                     </button>
                 </form>
             </div>

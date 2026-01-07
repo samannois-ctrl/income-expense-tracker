@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getUsers, createUser, updateUser, deleteUser } from '../services/api';
 import { BASE_URL } from '../config/api.js';
+import { useSettings } from '../context/SettingsContext';
 
 const UserManagement = () => {
+    const { t } = useSettings();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
@@ -99,7 +101,7 @@ const UserManagement = () => {
                 await updateUser(editingUser.id, form);
             } else {
                 if (!formData.password) {
-                    setError('Password is required for new users');
+                    setError(t('userManagement.passwordRequired'));
                     return;
                 }
                 await createUser(form);
@@ -113,7 +115,7 @@ const UserManagement = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Are you sure you want to delete this user?')) return;
+        if (!confirm(t('userManagement.deleteConfirm'))) return;
 
         try {
             await deleteUser(id);
@@ -132,30 +134,30 @@ const UserManagement = () => {
         <div>
             <div className="page-header flex-between">
                 <div>
-                    <h1 className="page-title">User Management</h1>
-                    <p className="page-subtitle">Manage system users</p>
+                    <h1 className="page-title">{t('userManagement.title')}</h1>
+                    <p className="page-subtitle">{t('userManagement.subtitle')}</p>
                 </div>
                 <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-                    ➕ Add User
+                    {t('userManagement.addUser')}
                 </button>
             </div>
 
             <div className="table-container">
                 {loading ? (
                     <div className="empty-state">
-                        <p>Loading...</p>
+                        <p>{t('common.loading')}</p>
                     </div>
                 ) : (
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>User</th>
-                                <th>Username</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                                <th>{t('userManagement.user')}</th>
+                                <th>{t('userManagement.username')}</th>
+                                <th>{t('userManagement.email')}</th>
+                                <th>{t('userManagement.phone')}</th>
+                                <th>{t('userManagement.role')}</th>
+                                <th>{t('userManagement.status')}</th>
+                                <th>{t('userManagement.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -178,12 +180,12 @@ const UserManagement = () => {
                                     <td>{user.phone || '-'}</td>
                                     <td>
                                         <span className={`badge badge-${user.role}`}>
-                                            {user.role}
+                                            {user.role === 'admin' ? t('userManagement.admin') : t('userManagement.user')}
                                         </span>
                                     </td>
                                     <td>
                                         <span className={`badge badge-${user.status}`}>
-                                            {user.status}
+                                            {user.status === 'active' ? t('userManagement.active') : t('userManagement.inactive')}
                                         </span>
                                     </td>
                                     <td>
@@ -214,7 +216,7 @@ const UserManagement = () => {
                 <div className="modal-overlay">
                     <div className="modal">
                         <div className="modal-header">
-                            <h2 className="modal-title">{editingUser ? 'Edit User' : 'Add User'}</h2>
+                            <h2 className="modal-title">{editingUser ? t('userManagement.editUser') : t('userManagement.createUser')}</h2>
                             <button className="modal-close" onClick={handleCloseModal}>×</button>
                         </div>
 
@@ -222,7 +224,7 @@ const UserManagement = () => {
 
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
-                                <label className="form-label">Username</label>
+                                <label className="form-label">{t('userManagement.username')}</label>
                                 <input
                                     type="text"
                                     name="username"
@@ -234,7 +236,7 @@ const UserManagement = () => {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Email</label>
+                                <label className="form-label">{t('userManagement.email')}</label>
                                 <input
                                     type="email"
                                     name="email"
@@ -247,7 +249,7 @@ const UserManagement = () => {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Password {editingUser && '(leave blank to keep current)'}</label>
+                                <label className="form-label">{t('login.password')} {editingUser && `(${t('profile.passwordHint')})`}</label>
                                 <input
                                     type="password"
                                     name="password"
@@ -259,7 +261,7 @@ const UserManagement = () => {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Full Name</label>
+                                <label className="form-label">{t('userManagement.fullName')}</label>
                                 <input
                                     type="text"
                                     name="fullName"
@@ -271,7 +273,7 @@ const UserManagement = () => {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Phone</label>
+                                <label className="form-label">{t('userManagement.phone')}</label>
                                 <input
                                     type="tel"
                                     name="phone"
@@ -282,28 +284,28 @@ const UserManagement = () => {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Role</label>
+                                <label className="form-label">{t('userManagement.role')}</label>
                                 <select
                                     name="role"
                                     className="form-select"
                                     value={formData.role}
                                     onChange={handleChange}
                                 >
-                                    <option value="user">User</option>
-                                    <option value="admin">Admin</option>
+                                    <option value="user">{t('userManagement.user')}</option>
+                                    <option value="admin">{t('userManagement.admin')}</option>
                                 </select>
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Status</label>
+                                <label className="form-label">{t('userManagement.status')}</label>
                                 <select
                                     name="status"
                                     className="form-select"
                                     value={formData.status}
                                     onChange={handleChange}
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
+                                    <option value="active">{t('userManagement.active')}</option>
+                                    <option value="inactive">{t('userManagement.inactive')}</option>
                                 </select>
                             </div>
 
@@ -319,10 +321,10 @@ const UserManagement = () => {
 
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>
-                                    Cancel
+                                    {t('common.cancel')}
                                 </button>
                                 <button type="submit" className="btn btn-primary">
-                                    {editingUser ? 'Update' : 'Create'}
+                                    {editingUser ? t('common.save') : t('common.add')}
                                 </button>
                             </div>
                         </form>
