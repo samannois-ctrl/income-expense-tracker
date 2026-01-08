@@ -45,10 +45,10 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/summary', authenticateToken, async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
-        let incomeQuery = 'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE userId = ? AND type = ?';
-        let expenseQuery = 'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE userId = ? AND type = ?';
-        let incomeParams = [req.user.id, 'income'];
-        let expenseParams = [req.user.id, 'expense'];
+        let incomeQuery = 'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = ?';
+        let expenseQuery = 'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = ?';
+        let incomeParams = ['income'];
+        let expenseParams = ['expense'];
 
         if (startDate) {
             incomeQuery += ' AND date >= ?';
