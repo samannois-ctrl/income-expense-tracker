@@ -1,0 +1,5 @@
+Error: Index for table 'db' is corrupt; try to repair it
+Stack: Error: Index for table 'db' is corrupt; try to repair it
+    at PromiseConnection.query (C:\income-expense-tracker\server\node_modules\mysql2\lib\promise\connection.js:29:22)
+    at setupDatabase (file:///C:/income-expense-tracker/server/setup-mysql-database.js:57:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)

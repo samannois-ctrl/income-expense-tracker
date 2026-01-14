@@ -11,6 +11,10 @@ const generateSaleNumber = () => {
     return `SALE-${dateStr}-${timeStr}`;
 };
 
+const getBangkokDate = () => {
+    return new Date().toLocaleDateString('fr-CA', { timeZone: 'Asia/Bangkok' });
+};
+
 // Create Sale
 // Create or Append Order (Session Management)
 router.post('/sales', auth, async (req, res) => {
@@ -165,7 +169,7 @@ router.post('/sales/:id/pay', auth, async (req, res) => {
 
         await connection.query(
             `INSERT INTO transactions (userId, sale_id, type, amount, quantity, category, description, date) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE())`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 userId,
                 saleId,
@@ -174,6 +178,7 @@ router.post('/sales/:id/pay', auth, async (req, res) => {
                 itemsCount,
                 'POS Sales', // Category
                 `POS Sale #${saleData.paper_order_ref} ${saleData.table_id ? '(Table ' + saleData.table_id + ')' : ''}`,
+                getBangkokDate()
             ]
         );
 

@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import './POSHistory.css';
 
-const API_URL = 'http://localhost:3001/api';
+import { API_URL } from '../config/api';
 
 const POSHistory = () => {
     const { t, language } = useSettings();

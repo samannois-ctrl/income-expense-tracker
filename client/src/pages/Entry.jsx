@@ -5,7 +5,7 @@ import ThaiDatePicker from '../components/ThaiDatePicker';
 import Modal from '../components/Modal';
 import { useSettings } from '../context/SettingsContext';
 
-const API_URL = 'http://localhost:3001/api';
+import { API_URL } from '../config/api';
 
 const Entry = () => {
     const [transactions, setTransactions] = useState([]);
@@ -15,7 +15,11 @@ const Entry = () => {
     const [editData, setEditData] = useState({});
 
     // Shared selected date for all forms and history filter
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offset).toISOString().split('T')[0];
+    });
 
     // Type filter for history (all, income, expense)
     const [typeFilter, setTypeFilter] = useState('all');

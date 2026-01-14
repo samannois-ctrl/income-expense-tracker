@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./server
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - PORT=3001
+      - DB_HOST=db
+      - DB_USER=tracker_user
+      - DB_PASSWORD=tracker_pass
+      - DB_NAME=income_expense_tracker
+      - DB_PORT=3306
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  client:
+    build: ./client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_TARGET=http://server:3001
+    depends_on:
+      - server
+    networks:
+      - app-network
+
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: income_expense_tracker
+      MYSQL_USER: tracker_user
+      MYSQL_PASSWORD: tracker_pass
+    ports:
+      - "3307:3306" # Map to 3307 to avoid conflict with local MySQL if running
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+
+
+networks:
+  app-network:
+    driver: bridge

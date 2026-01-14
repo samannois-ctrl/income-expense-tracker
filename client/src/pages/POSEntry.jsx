@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import './POSEntry.css';
 
-const API_URL = 'http://localhost:3001/api';
+import { API_URL } from '../config/api';
 
 const POSEntry = () => {
     const { t } = useSettings();

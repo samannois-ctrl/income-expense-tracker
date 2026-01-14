@@ -121,6 +121,9 @@ const Reports = () => {
                 },
                 options: {
                     ...commonOptions,
+                    plugins: {
+                        ...commonOptions.plugins,
+                    },
                     scales: {
                         x: {
                             title: { display: true, text: 'Date' }
@@ -250,6 +253,20 @@ const Reports = () => {
                     <p className="page-subtitle">{t('reports.subtitle')}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div className="tabs" style={{ margin: 0 }}>
+                        <button
+                            className={`tab ${viewMode === 'monthly' ? 'active' : ''}`}
+                            onClick={() => setViewMode('monthly')}
+                        >
+                            {t('reports.monthlyOverview')}
+                        </button>
+                        <button
+                            className={`tab ${viewMode === 'daily' ? 'active' : ''}`}
+                            onClick={() => setViewMode('daily')}
+                        >
+                            {t('reports.dailyBreakdown')}
+                        </button>
+                    </div>
                     {viewMode === 'daily' && (
                         <>
                             <div style={{ width: '250px' }}>
@@ -278,20 +295,6 @@ const Reports = () => {
                             </div>
                         </>
                     )}
-                    <div className="tabs" style={{ margin: 0 }}>
-                        <button
-                            className={`tab ${viewMode === 'monthly' ? 'active' : ''}`}
-                            onClick={() => setViewMode('monthly')}
-                        >
-                            {t('reports.monthlyOverview')}
-                        </button>
-                        <button
-                            className={`tab ${viewMode === 'daily' ? 'active' : ''}`}
-                            onClick={() => setViewMode('daily')}
-                        >
-                            {t('reports.dailyBreakdown')}
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -311,7 +314,11 @@ const Reports = () => {
                             {t('reports.noData')}
                         </div>
                     ) : (
-                        <canvas ref={chartRef}></canvas>
+                        <div style={{ height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+                            <div style={{ height: '100%', minWidth: viewMode === 'daily' ? '1200px' : '100%' }}>
+                                <canvas ref={chartRef}></canvas>
+                            </div>
+                        </div>
                     )}
                 </div>
                 <div style={{ padding: '0 1.5rem 1.5rem', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>

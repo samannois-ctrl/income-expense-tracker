@@ -14,9 +14,9 @@ router.get('/monthly', authenticateToken, async (req, res) => {
                 type,
                 SUM(amount) as total
             FROM transactions 
-            WHERE userId = ?
+            WHERE 1=1
         `;
-        const params = [req.user.id];
+        const params = [];
 
         if (year) {
             query += ' AND YEAR(date) = ?';
@@ -80,13 +80,12 @@ router.get('/daily', authenticateToken, async (req, res) => {
         let query = `
             SELECT 
                 DATE_FORMAT(date, '%Y-%m-%d') as dateStr,
-                DAY(date) as day,
                 type,
                 SUM(amount) as total
             FROM transactions 
-            WHERE userId = ? AND date BETWEEN ? AND ?
+            WHERE date BETWEEN ? AND ?
         `;
-        const params = [req.user.id, startDate, endDate];
+        const params = [startDate, endDate];
 
         if (category && category !== 'all') {
             query += ' AND category = ?';
@@ -110,7 +109,7 @@ router.get('/daily', authenticateToken, async (req, res) => {
 
                     map.set(dateKey, {
                         name: label,
-                        day: row.day,
+                        day: dateObj.getDate(),
                         income: 0,
                         expense: 0,
                         date: dateKey

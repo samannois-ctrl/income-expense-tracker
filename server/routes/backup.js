@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import db from '../database.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import dotenv from 'dotenv';
+import multer from 'multer'; const upload = multer({ dest: 'uploads/' });
 
 const execPromise = promisify(exec);
 
@@ -267,6 +268,43 @@ router.get('/download', authenticateToken, requireAdmin, async (req, res) => {
         } else {
             res.end();
         }
+    }
+});
+
+// Restore database from backup
+router.post('/restore', authenticateToken, requireAdmin, upload.single('backup'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No backup file provided' });
+        }
+
+        const filePath = req.file.path;
+        console.log(`Starting database restore from ${req.file.originalname}...`);
+
+        // Read SQL file
+        const sqlContent = fs.readFileSync(filePath, 'utf8');
+
+        // Execute SQL content
+        // Note: multipleStatements must be enabled in DB config
+        await db.exec(sqlContent);
+
+        // Clean up uploaded file
+        fs.unlinkSync(filePath);
+
+        console.log('Database restored successfully');
+        res.json({ message: 'Database restored successfully' });
+
+    } catch (error) {
+        console.error('Restore error:', error);
+
+        // Cleanup temp file if error
+        if (req.file && fs.existsSync(req.file.path)) {
+            try { fs.unlinkSync(req.file.path); } catch (e) {
+                console.error('Error cleaning up temp file:', e);
+            }
+        }
+
+        res.status(500).json({ error: `Restore failed: ${error.message}` });
     }
 });
 

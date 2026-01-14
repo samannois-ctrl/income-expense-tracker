@@ -53,24 +53,39 @@ async function setupDatabase() {
 
         // Step 4: Grant privileges
         console.log(`🔑 Granting privileges to '${process.env.DB_USER}'...`);
-        await connection.query(
-            `GRANT ALL PRIVILEGES ON ${process.env.DB_NAME}.* 
-       TO '${process.env.DB_USER}'@'localhost'`
-        );
-        await connection.query('FLUSH PRIVILEGES');
-        console.log('✅ Privileges granted successfully!\n');
+        try {
+            await connection.query(
+                `GRANT ALL PRIVILEGES ON ${process.env.DB_NAME}.* 
+           TO '${process.env.DB_USER}'@'localhost'`
+            );
+            await connection.query('FLUSH PRIVILEGES');
+            console.log('✅ Privileges granted successfully!\n');
+        } catch (grantError) {
+            console.error('❌ Error granting privileges:', grantError.message);
+            throw grantError;
+        }
 
         // Step 5: Test connection with new user
         console.log('🧪 Testing connection with new user...');
-        const userConnection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            port: process.env.DB_PORT,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-        });
-        console.log('✅ User connection test successful!\n');
-        await userConnection.end();
+        try {
+            const userConnection = await mysql.createConnection({
+                host: process.env.DB_HOST,
+                port: process.env.DB_PORT,
+                user: process.env.DB_USER,
+                password: process.env.DB_PASSWORD,
+                database: process.env.DB_NAME,
+            });
+            console.log('✅ User connection test successful!\n');
+            await userConnection.end();
+        } catch (connError) {
+            console.error('❌ User connection test FAILED:', connError.message);
+            // Verify if we can still connect as root (sanity check)
+            console.log('Sanity check: Root still works?');
+            // We are already connected as root in 'connection' var
+            const [check] = await connection.query('SELECT 1');
+            console.log('Root connection is alive:', !!check);
+            throw connError;
+        }
 
         // Step 6: Display summary
         console.log('📋 Database Setup Summary:');
@@ -86,6 +101,10 @@ async function setupDatabase() {
         console.log('👉 Next step: Run migrations to create tables\n');
 
     } catch (error) {
+        // Write detailed error to file for debugging
+        const fs = await import('fs');
+        fs.writeFileSync('setup_error.txt', `Error: ${error.message}\nStack: ${error.stack}\n`);
+
         console.error('❌ Error during database setup:', error.message);
         console.error('\n💡 Troubleshooting:');
         console.error('   1. Make sure MySQL/MariaDB is running in XAMPP');

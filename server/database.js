@@ -15,7 +15,7 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'tracker_user',
-  password: process.env.DB_PASSWORD || 'tracker_pass',
+  password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : 'tracker_pass',
   database: process.env.DB_NAME || 'income_expense_tracker',
   waitForConnections: true,
   connectionLimit: 10,
@@ -23,7 +23,8 @@ const pool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
   dateStrings: true,
-  decimalNumbers: true
+  decimalNumbers: true,
+  multipleStatements: true
 });
 
 // Initialize database tables

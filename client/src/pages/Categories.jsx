@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 
-const API_URL = 'http://localhost:3001/api';
+import { API_URL } from '../config/api';
 
 const Categories = () => {
     const { user } = useAuth();
