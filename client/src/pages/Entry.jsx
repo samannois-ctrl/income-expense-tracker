@@ -103,7 +103,7 @@ const Entry = () => {
             console.log('📤 INCOME Submit - incomeData:', incomeData);
             const transactionData = {
                 type: 'income',
-                amount: parseFloat(incomeData.amount),
+                amount: parseFloat(incomeData.amount) * (parseInt(incomeData.quantity) || 1),
                 quantity: parseInt(incomeData.quantity) || 1,
                 category: incomeData.category,
                 description: incomeData.description,
@@ -129,7 +129,7 @@ const Entry = () => {
             console.log('📤 EXPENSE Submit - expenseData:', expenseData);
             const transactionData = {
                 type: 'expense',
-                amount: parseFloat(expenseData.amount),
+                amount: parseFloat(expenseData.amount) * (parseInt(expenseData.quantity) || 1),
                 quantity: parseInt(expenseData.quantity) || 1,
                 category: expenseData.category,
                 description: expenseData.description,
@@ -150,9 +150,10 @@ const Entry = () => {
 
     const handleEdit = (tx) => {
         setEditingTransaction(tx);
+        const qty = tx.quantity || 1;
         setEditData({
-            amount: tx.amount,
-            quantity: tx.quantity || 1,
+            amount: tx.amount / qty,
+            quantity: qty,
             category: tx.category,
             description: tx.description || '',
             date: tx.date
@@ -170,9 +171,10 @@ const Entry = () => {
         if (!editingTransaction) return;
 
         try {
+            const qty = parseInt(editData.quantity) || 1;
             await updateTransaction(editingTransaction.id, {
-                amount: parseFloat(editData.amount),
-                quantity: parseInt(editData.quantity) || 1,
+                amount: parseFloat(editData.amount) * qty,
+                quantity: qty,
                 category: editData.category,
                 description: editData.description,
                 date: editData.date
@@ -298,17 +300,6 @@ const Entry = () => {
                             />
                         </div>
                         <div className="form-group">
-                            <input
-                                type="tel"
-                                pattern="[0-9.,]*"
-                                className="form-input"
-                                placeholder={t('entry.amount')}
-                                value={formatInputNumber(incomeData.amount)}
-                                onChange={(e) => setIncomeData({ ...incomeData, amount: parseInputNumber(e.target.value) })}
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <button
                                     type="button"
@@ -336,6 +327,25 @@ const Entry = () => {
                                 >
                                     +
                                 </button>
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <input
+                                type="tel"
+                                pattern="[0-9.,]*"
+                                className="form-input"
+                                placeholder={t('entry.amount')}
+                                value={formatInputNumber(incomeData.amount)}
+                                onChange={(e) => setIncomeData({ ...incomeData, amount: parseInputNumber(e.target.value) })}
+                                required
+                            />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                                <span style={{ fontWeight: '500' }}>{t('entry.total')}:</span>
+                                <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--color-accent-green)' }}>
+                                    {formatCurrency((parseFloat(incomeData.amount) || 0) * (parseInt(incomeData.quantity) || 1))}
+                                </span>
                             </div>
                         </div>
                         <div className="form-group">
@@ -373,17 +383,6 @@ const Entry = () => {
                             />
                         </div>
                         <div className="form-group">
-                            <input
-                                type="tel"
-                                pattern="[0-9.,]*"
-                                className="form-input"
-                                placeholder={t('entry.amount')}
-                                value={formatInputNumber(expenseData.amount)}
-                                onChange={(e) => setExpenseData({ ...expenseData, amount: parseInputNumber(e.target.value) })}
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <button
                                     type="button"
@@ -415,6 +414,25 @@ const Entry = () => {
                         </div>
                         <div className="form-group">
                             <input
+                                type="tel"
+                                pattern="[0-9.,]*"
+                                className="form-input"
+                                placeholder={t('entry.amount')}
+                                value={formatInputNumber(expenseData.amount)}
+                                onChange={(e) => setExpenseData({ ...expenseData, amount: parseInputNumber(e.target.value) })}
+                                required
+                            />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                                <span style={{ fontWeight: '500' }}>{t('entry.total')}:</span>
+                                <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--color-accent-red)' }}>
+                                    {formatCurrency((parseFloat(expenseData.amount) || 0) * (parseInt(expenseData.quantity) || 1))}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <input
                                 type="text"
                                 className="form-input"
                                 placeholder={t('entry.note')}
@@ -425,7 +443,7 @@ const Entry = () => {
                         <button type="submit" className="btn btn-danger btn-block" disabled={expenseLoading}>
                             {expenseLoading ? t('entry.adding') : t('entry.addExpense')}
                         </button>
-                    </form>
+                    </form >
                 </div>
 
                 {/* History Column */}
@@ -556,18 +574,14 @@ const Entry = () => {
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div className="form-group">
-                        <label className="form-label">{t('entry.amount')}</label>
-                        <input
-                            type="text"
-                            className="form-input"
-                            value={editData.amount ? formatNumber(editData.amount) : ''}
-                            onChange={(e) => {
-                                const value = e.target.value.replace(/,/g, '');
-                                if (value === '' || !isNaN(value)) {
-                                    setEditData({ ...editData, amount: value });
-                                }
-                            }}
-                            placeholder="0.00"
+                        <label className="form-label">{t('entry.category')}</label>
+                        <CategorySelect
+                            value={editData.category}
+                            onChange={(value) => setEditData({ ...editData, category: value })}
+                            categories={editingTransaction?.type === 'income' ? incomeCategories : expenseCategories}
+                            type={editingTransaction?.type || 'expense'}
+                            onCategoryAdded={fetchCategories}
+                            placeholder="Select category"
                         />
                     </div>
 
@@ -604,16 +618,31 @@ const Entry = () => {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">{t('entry.category')}</label>
-                        <CategorySelect
-                            value={editData.category}
-                            onChange={(value) => setEditData({ ...editData, category: value })}
-                            categories={editingTransaction?.type === 'income' ? incomeCategories : expenseCategories}
-                            type={editingTransaction?.type || 'expense'}
-                            onCategoryAdded={fetchCategories}
-                            placeholder="Select category"
+                        <label className="form-label">{t('entry.amount')}</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            value={editData.amount ? formatNumber(editData.amount) : ''}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/,/g, '');
+                                if (value === '' || !isNaN(value)) {
+                                    setEditData({ ...editData, amount: value });
+                                }
+                            }}
+                            placeholder="0.00"
                         />
                     </div>
+
+                    <div className="form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                            <span style={{ fontWeight: '500' }}>{t('entry.total')}:</span>
+                            <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: editingTransaction?.type === 'income' ? 'var(--color-accent-green)' : 'var(--color-accent-red)' }}>
+                                {formatCurrency((parseFloat(editData.amount) || 0) * (parseInt(editData.quantity) || 1))}
+                            </span>
+                        </div>
+                    </div>
+
+
 
                     <div className="form-group">
                         <label className="form-label">{t('entry.date')}</label>

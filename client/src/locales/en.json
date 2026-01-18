@@ -61,7 +61,8 @@
         "editIncome": "Edit Income",
         "editExpense": "Edit Expense",
         "saveChanges": "Save Changes",
-        "qty": "Qty"
+        "qty": "Qty",
+        "total": "Total"
     },
     "settings": {
         "title": "Settings",

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   server:
     build: ./server
@@ -16,7 +14,8 @@ services:
       - DB_NAME=income_expense_tracker
       - DB_PORT=3306
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -49,6 +48,11 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - app-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tracker_user", "--password=tracker_pass" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   mysql_data:
