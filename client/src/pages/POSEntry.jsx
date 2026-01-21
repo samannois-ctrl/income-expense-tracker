@@ -354,11 +354,13 @@ const POSEntry = () => {
                 unit_price: calculateCurrentPrice(),
                 quantity: 1,
                 selectedOptions: rawOptions,
-                isTakeAway: isTakeAway
+                isTakeAway: isTakeAway,
+                notes: currentSelections.note || ''
             };
             updateCurrentCart([...cart, item]);
         }
         setSelectedMenu(null);
+        setCurrentSelections({}); // Reset
     };
 
     const updateQuantity = (itemId, delta) => {
@@ -684,6 +686,93 @@ const POSEntry = () => {
 
 
 
+    // --- Cancel / Edit Handlers ---
+    const [showEditNoteModal, setShowEditNoteModal] = useState(false);
+    const [editingItem, setEditingItem] = useState(null); // { id, notes, isSent: boolean }
+    const [editNoteValue, setEditNoteValue] = useState('');
+
+    const handleUpdateSentItem = async (itemId, notes) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/pos/sales/${selectedSaleId || (tables.find(t => t.id === selectedTable)?.current_sale_id)}/items/${itemId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ notes })
+            });
+            if (!res.ok) throw new Error("Failed to update note");
+
+            // Refresh
+            const table = tables.find(t => t.id === selectedTable);
+            if (table?.current_sale_id) fetchSaleDetails(table.current_sale_id);
+            else if (selectedSaleId) fetchSaleDetails(selectedSaleId);
+
+            setShowEditNoteModal(false);
+            setEditingItem(null);
+        } catch (e) {
+            alert(e.message);
+        }
+    };
+
+    const handleCancelSentItem = async (itemId) => {
+        if (!confirm(t('pos.cancelItemConfirm'))) return;
+        try {
+            const token = localStorage.getItem('token');
+            const saleId = selectedSaleId || (tables.find(t => t.id === selectedTable)?.current_sale_id);
+            const res = await fetch(`${API_URL}/pos/sales/${saleId}/items/${itemId}/cancel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error("Failed to cancel item");
+
+            // Refresh
+            fetchSaleDetails(saleId);
+        } catch (e) {
+            alert(e.message);
+        }
+    };
+
+    const handleCancelSale = async () => {
+        if (!confirm(t('pos.cancelOrderConfirm'))) return;
+        try {
+            const token = localStorage.getItem('token');
+            const saleId = selectedSaleId || (tables.find(t => t.id === selectedTable)?.current_sale_id);
+            const res = await fetch(`${API_URL}/pos/sales/${saleId}/cancel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error("Failed to cancel order");
+
+            setSelectedTable(null);
+            setSelectedSaleId(null);
+            setExistingItems([]);
+            setExistingTotal(0);
+            fetchTables();
+            if (orderType === 'take_away') fetchActiveTakeaways();
+
+        } catch (e) {
+            alert(e.message);
+        }
+    };
+
+    const openEditNote = (item, isSent = true) => {
+        setEditingItem({ ...item, isSent });
+        setEditNoteValue(item.notes || item.itemNote || ''); // Handle sent vs cart structure
+        setShowEditNoteModal(true);
+    };
+
+    const saveEditNote = () => {
+        if (!editingItem) return;
+
+        if (editingItem.isSent) {
+            handleUpdateSentItem(editingItem.id, editNoteValue);
+        } else {
+            // Cart Update
+            updateCurrentCart(prev => prev.map(i => i.id === editingItem.id ? { ...i, notes: editNoteValue } : i));
+            setShowEditNoteModal(false);
+            setEditingItem(null);
+        }
+    };
+
     // UI Helpers
     const getTableColor = (table) => {
         if (table.id === selectedTable) return '#eff6ff'; // Selected (Light Blue)
@@ -980,29 +1069,57 @@ const POSEntry = () => {
 
                 <div className="pos-order-content">
 
-                    {/* EXISTING ORDERS (Read Only) */}
+                    {/* EXISTING ORDERS (Read Only/Edit) */}
                     {existingItems.length > 0 && (
-                        <div style={{ opacity: 0.8 }}>
-                            <div style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: 'bold', marginBottom: '0.5rem', borderBottom: '1px dashed #ccc', paddingBottom: '4px' }}>
-                                {t('pos.sentToKitchen')}
+                        <div style={{ opacity: 1 }}>
+                            <div style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: 'bold', marginBottom: '0.5rem', borderBottom: '1px dashed #ccc', paddingBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                                <span>{t('pos.sentToKitchen')} ({existingItems.length})</span>
+                                <button onClick={handleCancelSale} style={{ color: '#ef4444', border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                                    {t('pos.cancelOrder')}
+                                </button>
                             </div>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
                                 <thead>
                                     <tr style={{ color: '#6b7280', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
-                                        <th style={{ padding: '0.5rem', textAlign: 'center' }}>{t('pos.qty')}</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '40px' }}>{t('pos.qty')}</th>
                                         <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('pos.item')}</th>
-                                        <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('pos.total')}</th>
+                                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '60px' }}>{t('pos.total')}</th>
+                                        <th style={{ padding: '0.5rem', width: '60px' }}></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {existingItems.map((item, index) => (
-                                        <tr key={'exist-' + index} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 'bold', color: '#374151' }}>{item.quantity}</td>
+                                        <tr key={'exist-' + index} style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: item.is_cancelled ? '#fef2f2' : 'transparent', opacity: item.is_cancelled ? 0.6 : 1 }}>
+                                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 'bold', color: '#374151', textDecoration: item.is_cancelled ? 'line-through' : 'none' }}>{item.quantity}</td>
                                             <td style={{ padding: '0.75rem 0.5rem', color: '#374151' }}>
-                                                <div>{item.itemName}</div>
+                                                <div style={{ textDecoration: item.is_cancelled ? 'line-through' : 'none' }}>{item.itemName}</div>
                                                 <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{JSON.parse(item.options_json || '[]').map(o => o.name).join(', ')}</div>
+                                                {item.notes && <div style={{ fontSize: '0.85rem', color: '#d97706', fontStyle: 'italic' }}>📝 {item.notes}</div>}
+                                                {item.is_cancelled && <span style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 'bold' }}>CANCELLED</span>}
                                             </td>
-                                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 'bold' }}>{item.total_price * item.quantity}</td>
+                                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 'bold', textDecoration: item.is_cancelled ? 'line-through' : 'none' }}>
+                                                {item.total_price * item.quantity}
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                {!item.is_cancelled && (
+                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            onClick={() => openEditNote(item, true)}
+                                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1rem' }}
+                                                            title="Edit Note"
+                                                        >
+                                                            📝
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleCancelSentItem(item.id)}
+                                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1rem', color: '#ef4444' }}
+                                                            title="Cancel Item"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1040,10 +1157,20 @@ const POSEntry = () => {
                                             <td style={{ padding: '0.75rem 0.5rem', verticalAlign: 'top' }}>
                                                 <div style={{ fontWeight: 'bold', color: '#111827' }}>{item.itemName}</div>
                                                 <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '4px' }}>{item.itemOptions}</div>
-                                                {/* Fast Multipliers */}
-                                                <div style={{ display: 'flex', gap: '4px' }}>
-                                                    <button onClick={() => setQuantityMultiplier(item.id, 2)} style={{ fontSize: '0.7rem', padding: '2px 6px', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>x2</button>
-                                                    <button onClick={() => setQuantityMultiplier(item.id, 3)} style={{ fontSize: '0.7rem', padding: '2px 6px', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>x3</button>
+                                                {item.notes && <div style={{ fontSize: '0.85rem', color: '#d97706', fontStyle: 'italic', marginBottom: '4px' }}>📝 {item.notes}</div>}
+
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    {/* Fast Multipliers */}
+                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                        <button onClick={() => setQuantityMultiplier(item.id, 2)} style={{ fontSize: '0.7rem', padding: '2px 6px', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>x2</button>
+                                                        <button onClick={() => setQuantityMultiplier(item.id, 3)} style={{ fontSize: '0.7rem', padding: '2px 6px', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>x3</button>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => openEditNote(item, false)}
+                                                        style={{ fontSize: '0.75rem', padding: '2px 6px', backgroundColor: 'transparent', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}
+                                                    >
+                                                        Edit Note
+                                                    </button>
                                                 </div>
                                             </td>
                                             <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 'bold', verticalAlign: 'top' }}>
@@ -1116,27 +1243,68 @@ const POSEntry = () => {
                                     💰 {t('pos.checkBill')}
                                 </button>
                                 <button
-                                    className="btn btn-success btn-lg btn-block"
+                                    className={`btn btn-lg btn-block ${cart.length > 0 ? 'btn-success' : 'btn-secondary'}`}
                                     onClick={sendOrder}
                                     disabled={cart.length === 0 || isProcessing}
-                                    style={{ height: '64px', fontSize: '1.2rem', borderRadius: '16px', fontWeight: 'bold' }}
+                                    style={{
+                                        height: '64px',
+                                        fontSize: '1.2rem',
+                                        borderRadius: '16px',
+                                        fontWeight: 'bold',
+                                        backgroundColor: cart.length > 0 ? undefined : '#e5e7eb',
+                                        color: cart.length > 0 ? undefined : '#9ca3af',
+                                        border: cart.length > 0 ? undefined : '1px solid #d1d5db'
+                                    }}
                                 >
-                                    ✅ {t('pos.sendOrder')}
+                                    {cart.length > 0 ? `✅ ${t('pos.sendOrder')}` : `🕒 ${t('pos.orderSent')}`}
                                 </button>
                                 {selectedTable && tables.find(t => t.id === selectedTable)?.status === 'occupied' && (
-                                    <button
-                                        className="btn btn-secondary btn-lg btn-block"
-                                        onClick={() => setShowMoveModal(true)}
-                                        style={{ height: '48px', fontSize: '1rem', borderRadius: '12px', fontWeight: 'bold', gridColumn: 'span 2', marginTop: '-0.5rem' }}
-                                    >
-                                        ↔ {t('pos.moveTable')}
-                                    </button>
+                                    <>
+                                        <button
+                                            className="btn btn-secondary btn-lg btn-block"
+                                            onClick={() => setShowMoveModal(true)}
+                                            style={{ height: '48px', fontSize: '1rem', borderRadius: '12px', fontWeight: 'bold', marginTop: '-0.5rem' }}
+                                        >
+                                            ↔ {t('pos.moveTable')}
+                                        </button>
+                                        <button
+                                            className="btn btn-danger btn-lg btn-block"
+                                            onClick={handleCancelSale}
+                                            style={{ height: '48px', fontSize: '1rem', borderRadius: '12px', fontWeight: 'bold', marginTop: '-0.5rem', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}
+                                        >
+                                            ❌ {t('pos.voidOrder')}
+                                        </button>
+                                    </>
                                 )}
                             </>
                         )}
                     </div>
                 </div>
             </div>
+
+            {/* Modal: Edit Note */}
+            {
+                showEditNoteModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200
+                    }}>
+                        <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '400px' }}>
+                            <h3 style={{ marginTop: 0 }}>📝 Edit Note</h3>
+                            <textarea
+                                autoFocus
+                                value={editNoteValue}
+                                onChange={e => setEditNoteValue(e.target.value)}
+                                style={{ width: '100%', minHeight: '100px', padding: '1rem', borderRadius: '8px', border: '1px solid #d1d5db', marginBottom: '1rem' }}
+                            />
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button onClick={() => setShowEditNoteModal(false)} style={{ flex: 1, padding: '1rem', borderRadius: '8px', border: '1px solid #d1d5db', background: 'white' }}>Cancel</button>
+                                <button onClick={saveEditNote} style={{ flex: 1, padding: '1rem', borderRadius: '8px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 'bold' }}>Save</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             {/* Modal: New Take Away Customer */}
             {
@@ -1288,6 +1456,17 @@ const POSEntry = () => {
                                         </div>
                                     </div>
                                 ))}
+
+                                {/* NOTE INPUT */}
+                                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '1.5rem' }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '1.2rem' }}>📝 {t('pos.note')}</label>
+                                    <textarea
+                                        value={currentSelections.note || ''}
+                                        onChange={(e) => setCurrentSelections(prev => ({ ...prev, note: e.target.value }))}
+                                        placeholder={t('pos.notePlaceholder')} // e.g. "No Spicy, Extra Sauce"
+                                        style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '1rem', minHeight: '80px' }}
+                                    />
+                                </div>
                             </div>
 
                             {/* Footer */}

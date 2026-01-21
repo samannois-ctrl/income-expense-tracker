@@ -388,6 +388,19 @@ router.post('/sales/:id/items/:itemId/cancel', auth, async (req, res) => {
     }
 });
 
+// Update Item (Notes / Quantity - though currently focused on Notes)
+router.put('/sales/:id/items/:itemId', auth, async (req, res) => {
+    const { id: saleId, itemId } = req.params;
+    const { notes } = req.body; // Expand to quantity later if needed
+
+    try {
+        await db.prepare('UPDATE sale_items SET notes = ? WHERE id = ? AND saleId = ?').run(notes, itemId, saleId);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Uncancel Sale (Restore)
 router.post('/sales/:id/uncancel', auth, async (req, res) => {
     const saleId = req.params.id;

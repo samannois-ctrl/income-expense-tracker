@@ -279,7 +279,9 @@
         "takeAwayItem": "Take Away",
         "customerNameRequired": "Customer Name is required",
         "orderSent": "Order Sent!",
-        "startOrder": "Start Order"
+        "startOrder": "Start Order",
+        "voidOrder": "Void Order",
+        "cancelOrder": "Cancel Order"
     },
     "posHistory": {
         "title": "Sales History",

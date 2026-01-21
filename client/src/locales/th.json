@@ -279,7 +279,9 @@
         "takeAwayItem": "กลับบ้าน",
         "customerNameRequired": "กรุณาระบุชื่อลูกค้า",
         "orderSent": "ส่งออเดอร์แล้ว!",
-        "startOrder": "เริ่มออเดอร์"
+        "startOrder": "เริ่มออเดอร์",
+        "voidOrder": "ยกเลิกออเดอร์",
+        "cancelOrder": "ยกเลิกออเดอร์"
     },
     "posHistory": {
         "title": "ประวัติการขาย",
