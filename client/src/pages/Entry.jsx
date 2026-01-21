@@ -103,7 +103,7 @@ const Entry = () => {
             console.log('📤 INCOME Submit - incomeData:', incomeData);
             const transactionData = {
                 type: 'income',
-                amount: parseFloat(incomeData.amount) * (parseInt(incomeData.quantity) || 1),
+                amount: parseFloat(incomeData.amount),
                 quantity: parseInt(incomeData.quantity) || 1,
                 category: incomeData.category,
                 description: incomeData.description,
@@ -129,7 +129,7 @@ const Entry = () => {
             console.log('📤 EXPENSE Submit - expenseData:', expenseData);
             const transactionData = {
                 type: 'expense',
-                amount: parseFloat(expenseData.amount) * (parseInt(expenseData.quantity) || 1),
+                amount: parseFloat(expenseData.amount),
                 quantity: parseInt(expenseData.quantity) || 1,
                 category: expenseData.category,
                 description: expenseData.description,
@@ -152,7 +152,7 @@ const Entry = () => {
         setEditingTransaction(tx);
         const qty = tx.quantity || 1;
         setEditData({
-            amount: tx.amount / qty,
+            amount: tx.amount,
             quantity: qty,
             category: tx.category,
             description: tx.description || '',
@@ -173,7 +173,7 @@ const Entry = () => {
         try {
             const qty = parseInt(editData.quantity) || 1;
             await updateTransaction(editingTransaction.id, {
-                amount: parseFloat(editData.amount) * qty,
+                amount: parseFloat(editData.amount),
                 quantity: qty,
                 category: editData.category,
                 description: editData.description,
@@ -263,7 +263,7 @@ const Entry = () => {
             </div>
 
             {/* Global Date Selector */}
-            <div className="card" style={{ marginBottom: 'var(--spacing-md)', position: 'relative', zIndex: 10 }}>
+            <div className="card" style={{ marginBottom: 'var(--spacing-md)', position: 'relative', zIndex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ fontSize: '1.25rem' }}>📅</span>
                     <label style={{ fontWeight: '600', color: 'var(--color-text-primary)', flex: '0 0 auto' }}>
@@ -340,14 +340,7 @@ const Entry = () => {
                                 required
                             />
                         </div>
-                        <div className="form-group" style={{ marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                                <span style={{ fontWeight: '500' }}>{t('entry.total')}:</span>
-                                <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--color-accent-green)' }}>
-                                    {formatCurrency((parseFloat(incomeData.amount) || 0) * (parseInt(incomeData.quantity) || 1))}
-                                </span>
-                            </div>
-                        </div>
+
                         <div className="form-group">
                             <input
                                 type="text"
@@ -423,14 +416,7 @@ const Entry = () => {
                                 required
                             />
                         </div>
-                        <div className="form-group" style={{ marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                                <span style={{ fontWeight: '500' }}>{t('entry.total')}:</span>
-                                <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--color-accent-red)' }}>
-                                    {formatCurrency((parseFloat(expenseData.amount) || 0) * (parseInt(expenseData.quantity) || 1))}
-                                </span>
-                            </div>
-                        </div>
+
                         <div className="form-group">
                             <input
                                 type="text"
@@ -633,14 +619,7 @@ const Entry = () => {
                         />
                     </div>
 
-                    <div className="form-group">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                            <span style={{ fontWeight: '500' }}>{t('entry.total')}:</span>
-                            <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: editingTransaction?.type === 'income' ? 'var(--color-accent-green)' : 'var(--color-accent-red)' }}>
-                                {formatCurrency((parseFloat(editData.amount) || 0) * (parseInt(editData.quantity) || 1))}
-                            </span>
-                        </div>
-                    </div>
+
 
 
 

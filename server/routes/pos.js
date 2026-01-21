@@ -95,8 +95,8 @@ router.post('/sales', auth, async (req, res) => {
         // 2. Insert Items (Append)
         for (const item of items) {
             await connection.query(
-                `INSERT INTO sale_items (saleId, menu_id, itemName, quantity, base_price, total_price, options_json, notes) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO sale_items (saleId, menu_id, itemName, quantity, base_price, total_price, options_json, notes, price) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     saleId,
                     item.menu_id,
@@ -105,7 +105,8 @@ router.post('/sales', auth, async (req, res) => {
                     item.base_price, // Stores original base (without options)
                     item.total_price, // FIX: Use pre-calculated line total (unit * qty)
                     JSON.stringify(item.selectedOptions || []),
-                    item.notes || null
+                    item.notes || null,
+                    item.total_price // Set price = total_price (legacy field requirement)
                 ]
             );
         }

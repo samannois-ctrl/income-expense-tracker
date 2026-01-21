@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { BASE_URL } from '../config/api.js';
 
-const Sidebar = ({ onLinkClick }) => {
+const Sidebar = ({ onLinkClick, collapsed, toggleCollapse }) => {
     const { user, logout } = useAuth();
     const { t } = useSettings();
     const navigate = useNavigate();
@@ -24,12 +24,30 @@ const Sidebar = ({ onLinkClick }) => {
     };
 
     return (
-        <aside className="sidebar">
+        <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} style={{ zIndex: 99999 }}>
             <div className="sidebar-header">
                 <div className="sidebar-logo">
                     <div className="sidebar-logo-icon">💰</div>
                     <span>Tracker</span>
                 </div>
+                <button
+                    className="sidebar-toggle-btn"
+                    onClick={toggleCollapse}
+                    title={collapsed ? "Expand" : "Collapse"}
+                    style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--color-text-tertiary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                        marginLeft: 'auto'
+                    }}
+                >
+                    {collapsed ? '▶' : '◀'}
+                </button>
             </div>
 
             <nav className="sidebar-nav">

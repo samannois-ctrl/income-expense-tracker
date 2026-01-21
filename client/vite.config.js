@@ -62,11 +62,7 @@ export default defineConfig({
 
   server: {
     host: true,
-    allowedHosts: [
-      '.trycloudflare.com',
-      'localhost',
-      '127.0.0.1'
-    ],
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: process.env.VITE_API_TARGET || 'http://localhost:3001',

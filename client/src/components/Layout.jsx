@@ -5,6 +5,7 @@ import MobileNav from './MobileNav';
 
 const Layout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
 
     const toggleSidebar = () => {
         setSidebarOpen(!sidebarOpen);
@@ -14,8 +15,12 @@ const Layout = () => {
         setSidebarOpen(false);
     };
 
+    const toggleCollapse = () => {
+        setCollapsed(!collapsed);
+    };
+
     return (
-        <div className="app-container">
+        <div className={`app-container ${collapsed ? 'layout-collapsed' : ''}`}>
             {/* Hamburger Button */}
             <button
                 className={`hamburger-btn ${sidebarOpen ? 'active' : ''}`}
@@ -35,7 +40,11 @@ const Layout = () => {
 
             {/* Sidebar */}
             <div className={sidebarOpen ? 'sidebar-wrapper open' : 'sidebar-wrapper'}>
-                <Sidebar onLinkClick={closeSidebar} />
+                <Sidebar
+                    onLinkClick={closeSidebar}
+                    collapsed={collapsed}
+                    toggleCollapse={toggleCollapse}
+                />
             </div>
 
             <main className="main-content">
