@@ -69,3 +69,53 @@
         font-size: 0.95rem;
     }
 }
+
+/* Resize Handle (Hidden on Desktop) */
+.resize-handle-mobile {
+    display: none;
+}
+
+@media (max-width: 1024px) {
+    .resize-handle-mobile {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        background-color: #f3f4f6;
+        border-top: 1px solid #d1d5db;
+        border-bottom: 1px solid #d1d5db;
+        height: 100%; /* It will take the grid row height */
+        width: 100%;
+        cursor: row-resize;
+        z-index: 50;
+        touch-action: none; /* Crucial for dragging */
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+    }
+
+    .resize-pill {
+        width: 40px;
+        height: 5px;
+        background-color: #cbd5e1;
+        border-radius: 10px;
+    }
+
+    .resize-btn {
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: #4b5563;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        cursor: pointer;
+    }
+
+    .pos-container {
+        /* Override specifically for the dynamic style usage in JS */
+        /* grid-template-rows is handled inline in JSX when resizing is active/enabled */
+    }
+}

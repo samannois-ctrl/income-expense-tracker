@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import './POSEntry.css';
@@ -7,6 +7,33 @@ import { API_URL } from '../config/api';
 
 const POSEntry = () => {
     const { t } = useSettings();
+
+    // --- Mobile Resize Logic ---
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+    const [mobileSplit, setMobileSplit] = useState(60); // % of Top (Menu) height
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const handleTouchMove = (e) => {
+        if (!containerRef.current) return;
+        const containerHeight = containerRef.current.clientHeight;
+        const touchY = e.touches[0].clientY;
+        // Calculate percentage
+        let newSplit = (touchY / containerHeight) * 100;
+
+        // Clamp between 20% and 80%
+        if (newSplit < 20) newSplit = 20;
+        if (newSplit > 80) newSplit = 80;
+
+        setMobileSplit(newSplit);
+    };
+    // ---------------------------
+
 
     // Master Data
     const [categories, setCategories] = useState([]);
@@ -791,7 +818,11 @@ const POSEntry = () => {
     const currentTableStatus = tables.find(t => t.id === selectedTable)?.status || 'available';
 
     return (
-        <div className="pos-container">
+        <div
+            className="pos-container"
+            ref={containerRef}
+            style={isMobile ? { gridTemplateRows: `${mobileSplit}% 24px auto` } : {}}
+        >
             {/* LEFT: Menu Selection */}
             <div className="pos-left-panel">
 
@@ -1040,6 +1071,16 @@ const POSEntry = () => {
                         </button>
                     ))}
                 </div>
+            </div>
+
+            {/* RESIZE HANDLE (Mobile Only) */}
+            <div
+                className="resize-handle-mobile"
+                onTouchMove={handleTouchMove}
+            >
+                <div className="resize-pill"></div>
+                <button className="resize-btn" onClick={() => setMobileSplit(30)}>▲</button>
+                <button className="resize-btn" onClick={() => setMobileSplit(70)}>▼</button>
             </div>
 
             {/* RIGHT: Cart & Order Status */}
